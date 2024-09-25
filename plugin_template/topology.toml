@@ -1,0 +1,3 @@
+[tiers.default]
+instances = 2
+replication_factor = 2
