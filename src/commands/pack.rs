@@ -1,8 +1,10 @@
+use core::panic;
 use flate2::write::GzEncoder;
 use flate2::Compression;
 use serde::Deserialize;
 use std::fs::File;
 use std::path::Path;
+use std::process::Command;
 use std::{env, fs};
 use tar::Builder;
 
@@ -23,13 +25,21 @@ const LIB_EXT: &str = "so";
 #[cfg(target_os = "macos")]
 const LIB_EXT: &str = "dylib";
 
+fn cargo_build_release() {
+    let output = Command::new("cargo")
+        .args(["build", "--release"])
+        .output()
+        .expect("failed to execute process");
+    if !output.status.success() {
+        panic!("Build error: {}", String::from_utf8_lossy(&output.stderr));
+    }
+}
+
 pub fn cmd() {
+    cargo_build_release();
+
     let root_dir = env::current_dir().unwrap();
     let release_dir = Path::new(&root_dir).join("target").join("release");
-
-    if !release_dir.exists() {
-        panic!("Please run `cargo build --release` first")
-    }
 
     let cargo_manifest: CargoManifest =
         toml::from_str(&fs::read_to_string(root_dir.join("Cargo.toml")).unwrap()).unwrap();
