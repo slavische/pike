@@ -1,0 +1,27 @@
+[package]
+name = "picodata-pike"
+version = "0.1.0"
+edition = "2021"
+license = "BSD-2-Clause"
+authors = ["Evgeniy Mitin <e.mitin@picodata.io>"]
+description = "Cargo plugin for Picodata plugin development"
+homepage = "https://picodata.io/"
+repository = "https://git.picodata.io/picodata/plugin/cargo-pike"
+documentation = "https://git.picodata.io/picodata/plugin/cargo-pike"
+keywords = ["picodata", "cargo", "plugin"]
+categories = ["development-tools::cargo-plugins"]
+readme = "README.md"
+rust-version = "1.81.0"
+
+[dependencies]
+clap = { version = "4", features = ["derive"] }
+toml = "0.8"
+serde = { version = "1", features = ["derive"] }
+include_dir = "0.7"
+liquid = "0.26"
+tar = "0.4"
+flate2 = "1"
+
+[[bin]]
+name = "cargo-pike"
+path = "src/main.rs"

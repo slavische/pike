@@ -1,0 +1,13 @@
+name: {{ project_name }}
+description: A plugin for picodata
+version: {{ "{{ version }}" }}
+services:
+  - name: main
+    description: default service
+    default_configuration:
+      value: example
+migration:
+{{ "{% for migration in migrations -%}" }}
+    - {{ "{{ migration }}" }}
+{{ "{%- endfor %}" }}
+
