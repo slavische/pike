@@ -44,6 +44,14 @@ cargo pike run --topology topology.toml --data-dir ./tmp
 
 Для отключения автоматической установки и включения плагинов можно использовать опцию `--disable-install-plugins`.
 
+### `plugin clean`
+
+Очистка дата-каталогов пикодаты.
+
+```bash
+cargo pike clean
+```
+
 ### `plugin new`
 
 Создание нового проекта плагина из шаблона.

@@ -29,6 +29,11 @@ enum Command {
         disable_install_plugins: bool,
         // TODO: add demon flag, if true then set output logs to file and release stdin
     },
+    /// Remove all data files of previous cluster run
+    Clean {
+        #[arg(short, long, value_name = "DATA_DIR", default_value = "./tmp")]
+        data_dir: PathBuf,
+    },
     /// Helpers for work with plugins
     Plugin {
         #[command(subcommand)]
@@ -65,6 +70,7 @@ fn main() {
             data_dir,
             disable_install_plugins,
         } => commands::run::cmd(topology, data_dir, !disable_install_plugins).unwrap(),
+        Command::Clean { data_dir } => commands::clean::cmd(data_dir),
         Command::Plugin { command } => match command {
             Plugin::Pack => commands::pack::cmd(),
             Plugin::New { path, without_git } => commands::new::cmd(Some(path), !without_git),
