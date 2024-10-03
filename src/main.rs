@@ -41,9 +41,16 @@ enum Plugin {
     New {
         #[arg(value_name = "path")]
         path: PathBuf,
+        /// Disable the automatic git initialization
+        #[arg(long)]
+        without_git: bool,
     },
     /// Create a new Picodata plugin in an existing directory
-    Init,
+    Init {
+        /// Disable the automatic git initialization
+        #[arg(long)]
+        without_git: bool,
+    },
 }
 
 fn main() {
@@ -53,8 +60,8 @@ fn main() {
         Command::Run { topology, data_dir } => commands::run::cmd(topology, data_dir).unwrap(),
         Command::Plugin { command } => match command {
             Plugin::Pack => commands::pack::cmd(),
-            Plugin::New { path } => commands::new::cmd(Some(path)),
-            Plugin::Init => commands::new::cmd(None),
+            Plugin::New { path, without_git } => commands::new::cmd(Some(path), !without_git),
+            Plugin::Init { without_git } => commands::new::cmd(None, !without_git),
         },
     }
 }

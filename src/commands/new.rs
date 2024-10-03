@@ -1,4 +1,4 @@
-use std::{env, fs, path::Path};
+use std::{env, ffi::OsStr, fs, path::Path, process::Command};
 
 use include_dir::{include_dir, Dir, DirEntry};
 
@@ -29,7 +29,18 @@ fn place_file(target_path: &Path, t_ctx: &liquid::Object, entries: &[DirEntry<'_
     }
 }
 
-pub fn cmd(path: Option<&Path>) {
+fn git<I, S>(args: I)
+where
+    I: IntoIterator<Item = S>,
+    S: AsRef<OsStr>,
+{
+    Command::new("git")
+        .args(args)
+        .output()
+        .expect("you need to install git");
+}
+
+pub fn cmd(path: Option<&Path>, init_git: bool) {
     let path = match path {
         Some(p) => {
             if p.exists() {
@@ -47,4 +58,11 @@ pub fn cmd(path: Option<&Path>) {
     });
 
     place_file(&path, &templates_ctx, PLUGIN_TEMPLATE.entries());
+
+    // init git repo
+    if init_git {
+        let project_path = path.to_str().unwrap();
+        git(["-C", project_path, "init"]);
+        git(["-C", project_path, "add", "."]);
+    }
 }

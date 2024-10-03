@@ -46,6 +46,8 @@ cargo pike run --topology topology.toml --data-dir ./tmp
 cargo pike plugin new name_of_new_plugin
 ```
 
+Автоматически инициализирует в проект git. Для отключения этого поведения можно воспользоваться флагом `--without-git`.
+
 ### `plugin init`
 
 Создание нового проекта плагина из шаблона в текущей папке.
@@ -53,6 +55,8 @@ cargo pike plugin new name_of_new_plugin
 ```bash
 cargo pike plugin init
 ```
+
+Автоматически инициализирует в проект git. Для отключения этого поведения можно воспользоваться флагом `--without-git`.
 
 ### `plugin pack`
 
