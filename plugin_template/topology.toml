@@ -1,3 +1,7 @@
 [tiers.default]
 instances = 2
 replication_factor = 2
+
+[[tiers.default.services]]
+name = "main"
+plugin = "{{ project_name }}"

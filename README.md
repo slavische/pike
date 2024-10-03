@@ -24,19 +24,25 @@ cargo pike --help
 
 ### `run`
 
-Запуск кластера пикодаты по файлу `topology.toml`.
+Запуск кластера пикодаты по файлу `topology.toml`. Автоматически запускает плагины указанные в топологии.
 
 Пример топологии:
 
 ```toml
 [tiers.default]
 instances = 2
-replication_factor = 3
+replication_factor = 2
+
+[[tiers.default.services]]
+name = "main"
+plugin = "plugin_name"
 ```
 
 ```bash
 cargo pike run --topology topology.toml --data-dir ./tmp
 ```
+
+Для отключения автоматической установки и включения плагинов можно использовать опцию `--disable-install-plugins`.
 
 ### `plugin new`
 

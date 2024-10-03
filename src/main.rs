@@ -24,6 +24,9 @@ enum Command {
         topology: PathBuf,
         #[arg(short, long, value_name = "DATA_DIR", default_value = "./tmp")]
         data_dir: PathBuf,
+        /// Disable the automatic installation of plugins
+        #[arg(long)]
+        disable_install_plugins: bool,
         // TODO: add demon flag, if true then set output logs to file and release stdin
     },
     /// Helpers for work with plugins
@@ -57,7 +60,11 @@ fn main() {
     let cli = Cli::parse_from(env::args().skip(1));
 
     match &cli.command {
-        Command::Run { topology, data_dir } => commands::run::cmd(topology, data_dir).unwrap(),
+        Command::Run {
+            topology,
+            data_dir,
+            disable_install_plugins,
+        } => commands::run::cmd(topology, data_dir, !disable_install_plugins).unwrap(),
         Command::Plugin { command } => match command {
             Plugin::Pack => commands::pack::cmd(),
             Plugin::New { path, without_git } => commands::new::cmd(Some(path), !without_git),
