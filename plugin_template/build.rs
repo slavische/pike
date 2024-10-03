@@ -36,7 +36,14 @@ fn main() {
     let migrations_dir = crate_dir.join("migrations");
     let migrations: Vec<String> = fs::read_dir(&migrations_dir)
         .unwrap()
-        .map(|path| path.unwrap().file_name().to_str().unwrap().to_string())
+        .map(|path| {
+            path.unwrap()
+                .path()
+                .strip_prefix(crate_dir)
+                .unwrap()
+                .to_string_lossy()
+                .into()
+        })
         .collect();
 
     let pkg_version = env::var("CARGO_PKG_VERSION").unwrap();
@@ -65,7 +72,7 @@ fn main() {
     std::os::unix::fs::symlink(out_dir.join("migrations"), plugin_path.join("migrations")).unwrap();
 
     for m in &migrations {
-        println!("cargo::rerun-if-changed=migrations/{m}");
+        println!("cargo::rerun-if-changed={m}");
     }
 
     println!("cargo::rerun-if-changed={MANIFEST_TEMPLATE_NAME}");
