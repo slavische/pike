@@ -39,6 +39,11 @@ enum Command {
         #[command(subcommand)]
         command: Plugin,
     },
+    /// Helpers for work with config of services
+    Config {
+        #[command(subcommand)]
+        command: Config,
+    },
 }
 
 #[derive(Subcommand)]
@@ -61,6 +66,24 @@ enum Plugin {
     },
 }
 
+#[derive(Subcommand)]
+enum Config {
+    /// Apply services config on Picodata cluster started by the Run command
+    Apply {
+        /// Path to config of the plugin
+        #[arg(
+            short,
+            long,
+            value_name = "CONFIG",
+            default_value = "plugin_config.yaml"
+        )]
+        config_path: PathBuf,
+        /// Path to data directory of the cluster
+        #[arg(short, long, value_name = "DATA_DIR", default_value = "./tmp")]
+        data_dir: PathBuf,
+    },
+}
+
 fn main() {
     let cli = Cli::parse_from(env::args().skip(1));
 
@@ -72,9 +95,17 @@ fn main() {
         } => commands::run::cmd(topology, data_dir, !disable_install_plugins).unwrap(),
         Command::Clean { data_dir } => commands::clean::cmd(data_dir),
         Command::Plugin { command } => match command {
-            Plugin::Pack => commands::pack::cmd(),
-            Plugin::New { path, without_git } => commands::new::cmd(Some(path), !without_git),
-            Plugin::Init { without_git } => commands::new::cmd(None, !without_git),
+            Plugin::Pack => commands::plugin::pack::cmd(),
+            Plugin::New { path, without_git } => {
+                commands::plugin::new::cmd(Some(path), !without_git)
+            }
+            Plugin::Init { without_git } => commands::plugin::new::cmd(None, !without_git),
+        },
+        Command::Config { command } => match command {
+            Config::Apply {
+                config_path,
+                data_dir,
+            } => commands::config::apply::cmd(config_path, data_dir),
         },
     }
 }

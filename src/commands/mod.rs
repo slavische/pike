@@ -1,4 +1,4 @@
-pub(crate) mod run;
-pub(crate) mod new;
-pub(crate) mod pack;
 pub(crate) mod clean;
+pub(crate) mod config;
+pub(crate) mod plugin;
+pub(crate) mod run;
