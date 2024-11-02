@@ -27,6 +27,9 @@ enum Command {
         /// Disable the automatic installation of plugins
         #[arg(long)]
         disable_install_plugins: bool,
+        /// Base http port for picodata instances
+        #[arg(short, long, default_value = "8000")]
+        base_http_ports: i32,
         // TODO: add demon flag, if true then set output logs to file and release stdin
     },
     /// Remove all data files of previous cluster run
@@ -92,7 +95,14 @@ fn main() {
             topology,
             data_dir,
             disable_install_plugins,
-        } => commands::run::cmd(topology, data_dir, !disable_install_plugins).unwrap(),
+            base_http_ports,
+        } => commands::run::cmd(
+            topology,
+            data_dir,
+            !disable_install_plugins,
+            base_http_ports,
+        )
+        .unwrap(),
         Command::Clean { data_dir } => commands::clean::cmd(data_dir),
         Command::Plugin { command } => match command {
             Plugin::Pack => commands::plugin::pack::cmd(),

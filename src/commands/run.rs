@@ -1,7 +1,10 @@
+use ctrlc;
+use lazy_static::lazy_static;
 use serde::Deserialize;
 use std::io::Write;
 use std::path::Path;
-use std::process::{Command, Stdio};
+use std::process::{exit, Child, Command, Stdio};
+use std::sync::{Arc, Mutex};
 use std::thread;
 use std::time::Duration;
 use std::{collections::HashMap, error::Error, fs, path::PathBuf};
@@ -26,6 +29,10 @@ struct Topology {
     tiers: HashMap<String, Tier>,
 }
 
+lazy_static! {
+    static ref PICODATA_PROCESSES: Arc<Mutex<Vec<Child>>> = Arc::new(Mutex::new(Vec::new()));
+}
+
 fn enable_plugins(topology: &Topology, data_dir: &Path) {
     let plugins_dir = Path::new(PLUGINS_DIR);
     let mut plugins: HashMap<String, String> = HashMap::new();
@@ -36,6 +43,14 @@ fn enable_plugins(topology: &Topology, data_dir: &Path) {
         for service in services {
             plugins.entry(service.plugin.clone()).or_insert_with(|| {
                 let plugin_dir = plugins_dir.join(service.plugin.clone());
+
+                if !plugin_dir.exists() {
+                    eprintln!(
+                        "[-] Directory {} does not exist",
+                        plugin_dir.to_str().unwrap()
+                    );
+                    shutdown();
+                }
                 let mut versions: Vec<_> = fs::read_dir(plugin_dir)
                     .unwrap()
                     .map(|r| r.unwrap())
@@ -90,12 +105,30 @@ fn enable_plugins(topology: &Topology, data_dir: &Path) {
     }
 }
 
+fn shutdown() {
+    let mut processes = PICODATA_PROCESSES.lock().unwrap();
+    for mut process in processes.drain(..) {
+        let _ = process.kill();
+    }
+    exit(0);
+}
+
 pub fn cmd(
     topology_path: &PathBuf,
     data_dir: &Path,
     is_plugins_instalation_enabled: bool,
+    base_http_ports: &i32,
 ) -> Result<(), Box<dyn Error>> {
     fs::create_dir_all(data_dir).unwrap();
+
+    {
+        ctrlc::set_handler(move || {
+            println!("\nReceived Ctrl+C. Shutting down ...");
+
+            shutdown();
+        })
+        .expect("Error setting Ctrl+C handler");
+    }
 
     let topology: &Topology = &toml::from_str(&fs::read_to_string(topology_path)?)?;
 
@@ -105,12 +138,12 @@ pub fn cmd(
         for _ in 0..(tier.instances * tier.replication_factor) {
             instance_id += 1;
             let bin_port = 3000 + instance_id;
-            let http_port = 8000 + instance_id;
+            let http_port = base_http_ports + instance_id;
             let instance_data_dir = data_dir.join("cluster").join(format!("i_{}", instance_id));
 
             // TODO: make it as child processes with catch output and redirect it to main
             // output
-            Command::new("picodata")
+            let process = Command::new("picodata")
                 .args([
                     "run",
                     "--data-dir",
@@ -130,10 +163,10 @@ pub fn cmd(
                 ])
                 .spawn()
                 .expect("failed to execute process");
-
             // TODO: parse output and wait next line
             // main/116/governor_loop I> handling instance state change, current_state: Online(1), instance_id: i1
             thread::sleep(Duration::from_secs(5));
+            PICODATA_PROCESSES.lock().unwrap().push(process);
         }
     }
 
@@ -141,10 +174,7 @@ pub fn cmd(
         enable_plugins(topology, data_dir);
     }
 
-    // TODO: wait all child processes
-    thread::sleep(Duration::from_secs(88888));
-
-    // TODO: stop all child processes if ctrl+c
-
-    Ok(())
+    loop {
+        thread::sleep(std::time::Duration::from_millis(100));
+    }
 }
