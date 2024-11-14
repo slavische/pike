@@ -1,5 +1,5 @@
 use clap::{Parser, Subcommand};
-use std::{env, path::PathBuf};
+use std::{env, path::PathBuf, string};
 
 mod commands;
 
@@ -30,6 +30,9 @@ enum Command {
         /// Base http port for picodata instances
         #[arg(short, long, default_value = "8000")]
         base_http_ports: i32,
+        /// Specify path to picodata binary
+        #[arg(long, value_name = "BINARY_PATH", default_value = "picodata")]
+        picodata_path: PathBuf,
         // TODO: add demon flag, if true then set output logs to file and release stdin
     },
     /// Remove all data files of previous cluster run
@@ -96,11 +99,13 @@ fn main() {
             data_dir,
             disable_install_plugins,
             base_http_ports,
+            picodata_path,
         } => commands::run::cmd(
             topology,
             data_dir,
             !disable_install_plugins,
             base_http_ports,
+            picodata_path,
         )
         .unwrap(),
         Command::Clean { data_dir } => commands::clean::cmd(data_dir),

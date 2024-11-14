@@ -5,9 +5,9 @@ use std::io::Write;
 use std::path::Path;
 use std::process::{exit, Child, Command, Stdio};
 use std::sync::{Arc, Mutex};
-use std::thread;
 use std::time::Duration;
 use std::{collections::HashMap, error::Error, fs, path::PathBuf};
+use std::{string, thread};
 
 const PLUGINS_DIR: &str = "target/debug";
 
@@ -33,7 +33,7 @@ lazy_static! {
     static ref PICODATA_PROCESSES: Arc<Mutex<Vec<Child>>> = Arc::new(Mutex::new(Vec::new()));
 }
 
-fn enable_plugins(topology: &Topology, data_dir: &Path) {
+fn enable_plugins(topology: &Topology, data_dir: &Path, picodata_path: &PathBuf) {
     let plugins_dir = Path::new(PLUGINS_DIR);
     let mut plugins: HashMap<String, String> = HashMap::new();
     for tier in topology.tiers.values() {
@@ -90,7 +90,7 @@ fn enable_plugins(topology: &Topology, data_dir: &Path) {
     let admin_soket = data_dir.join("cluster").join("i_1").join("admin.sock");
 
     for query in queries {
-        let mut picodata_admin = Command::new("picodata")
+        let mut picodata_admin = Command::new(picodata_path)
             .arg("admin")
             .arg(admin_soket.to_str().unwrap())
             .stdin(Stdio::piped())
@@ -118,6 +118,7 @@ pub fn cmd(
     data_dir: &Path,
     is_plugins_instalation_enabled: bool,
     base_http_ports: &i32,
+    picodata_path: &PathBuf,
 ) -> Result<(), Box<dyn Error>> {
     fs::create_dir_all(data_dir).unwrap();
 
@@ -143,7 +144,7 @@ pub fn cmd(
 
             // TODO: make it as child processes with catch output and redirect it to main
             // output
-            let process = Command::new("picodata")
+            let process = Command::new(picodata_path)
                 .args([
                     "run",
                     "--data-dir",
@@ -171,7 +172,7 @@ pub fn cmd(
     }
 
     if is_plugins_instalation_enabled {
-        enable_plugins(topology, data_dir);
+        enable_plugins(topology, data_dir, picodata_path);
     }
 
     loop {
