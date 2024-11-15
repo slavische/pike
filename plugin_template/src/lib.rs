@@ -1,7 +1,7 @@
 mod config;
 mod service;
 
-use picoplugin::plugin::{interface::ServiceRegistry, prelude::service_registrar};
+use picodata_plugin::plugin::{interface::ServiceRegistry, prelude::service_registrar};
 
 #[service_registrar]
 pub fn service_registrar(reg: &mut ServiceRegistry) {

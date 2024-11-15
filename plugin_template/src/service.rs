@@ -1,6 +1,6 @@
 use crate::config;
 
-use picoplugin::plugin::prelude::*;
+use picodata_plugin::plugin::prelude::*;
 
 #[derive(Debug)]
 pub struct PluginService {}
