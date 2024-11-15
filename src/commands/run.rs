@@ -1,3 +1,4 @@
+use colored::*;
 use ctrlc;
 use lazy_static::lazy_static;
 use serde::Deserialize;
@@ -5,9 +6,9 @@ use std::io::Write;
 use std::path::Path;
 use std::process::{exit, Child, Command, Stdio};
 use std::sync::{Arc, Mutex};
+use std::thread;
 use std::time::Duration;
 use std::{collections::HashMap, error::Error, fs, path::PathBuf};
-use std::{string, thread};
 
 const PLUGINS_DIR: &str = "target/debug";
 
@@ -46,8 +47,10 @@ fn enable_plugins(topology: &Topology, data_dir: &Path, picodata_path: &PathBuf)
 
                 if !plugin_dir.exists() {
                     eprintln!(
-                        "[-] Directory {} does not exist",
-                        plugin_dir.to_str().unwrap()
+                        "{} {} {}",
+                        "[-] Directory ".red(),
+                        plugin_dir.to_str().unwrap(),
+                        "does not exist".red()
                     );
                     shutdown();
                 }
@@ -124,11 +127,11 @@ pub fn cmd(
 
     {
         ctrlc::set_handler(move || {
-            println!("\nReceived Ctrl+C. Shutting down ...");
+            println!("{}", "\nReceived Ctrl+C. Shutting down ...".green());
 
             shutdown();
         })
-        .expect("Error setting Ctrl+C handler");
+        .expect(&"Error setting Ctrl+C handler".red());
     }
 
     let topology: &Topology = &toml::from_str(&fs::read_to_string(topology_path)?)?;
@@ -163,7 +166,7 @@ pub fn cmd(
                     tier_name,
                 ])
                 .spawn()
-                .expect("failed to execute process");
+                .expect(&"Failed to execute process".red());
             // TODO: parse output and wait next line
             // main/116/governor_loop I> handling instance state change, current_state: Online(1), instance_id: i1
             thread::sleep(Duration::from_secs(5));
