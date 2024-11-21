@@ -52,7 +52,7 @@ fn enable_plugins(topology: &Topology, data_dir: &Path, picodata_path: &PathBuf)
                         plugin_dir.to_str().unwrap(),
                         "does not exist".red()
                     );
-                    shutdown();
+                    shutdown(1);
                 }
                 let mut versions: Vec<_> = fs::read_dir(plugin_dir)
                     .unwrap()
@@ -108,12 +108,12 @@ fn enable_plugins(topology: &Topology, data_dir: &Path, picodata_path: &PathBuf)
     }
 }
 
-fn shutdown() {
+fn shutdown(code: i32) {
     let mut processes = PICODATA_PROCESSES.lock().unwrap();
     for mut process in processes.drain(..) {
         let _ = process.kill();
     }
-    exit(0);
+    exit(code);
 }
 
 pub fn cmd(
@@ -129,7 +129,7 @@ pub fn cmd(
         ctrlc::set_handler(move || {
             println!("{}", "\nReceived Ctrl+C. Shutting down ...".green());
 
-            shutdown();
+            shutdown(0);
         })
         .expect(&"Error setting Ctrl+C handler".red());
     }
