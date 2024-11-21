@@ -1,5 +1,7 @@
 use clap::{Parser, Subcommand};
-use std::{env, path::PathBuf};
+use std::{env, path::PathBuf, process::exit};
+use log::error;
+use anyhow::Result;
 
 mod commands;
 
@@ -34,6 +36,11 @@ enum Command {
         #[arg(long, value_name = "BINARY_PATH", default_value = "picodata")]
         picodata_path: PathBuf,
         // TODO: add demon flag, if true then set output logs to file and release stdin
+    },
+    // Stop picodata cluster
+    Stop {
+        #[arg(short, long, value_name = "DATA_DIR", default_value = "./tmp")]
+        data_dir: PathBuf,
     },
     /// Remove all data files of previous cluster run
     Clean {
@@ -90,7 +97,8 @@ enum Config {
     },
 }
 
-fn main() {
+fn main() -> Result<()>{
+    colog::init();
     let cli = Cli::parse_from(env::args().skip(1));
 
     match &cli.command {
@@ -106,8 +114,11 @@ fn main() {
             !disable_install_plugins,
             base_http_ports,
             picodata_path,
-        )
-        .unwrap(),
+        ).unwrap_or_else(|e|{
+            error!("Error: {e}");
+            exit(1);
+        }),
+        Command::Stop { data_dir } => commands::stop::cmd(data_dir)?,
         Command::Clean { data_dir } => commands::clean::cmd(data_dir),
         Command::Plugin { command } => match command {
             Plugin::Pack => commands::plugin::pack::cmd(),
@@ -122,5 +133,6 @@ fn main() {
                 data_dir,
             } => commands::config::apply::cmd(config_path, data_dir),
         },
-    }
+    };
+    Ok(())
 }

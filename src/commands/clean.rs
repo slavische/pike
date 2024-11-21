@@ -1,7 +1,7 @@
-use colored::*;
+use log::info;
 use std::{fs, path::Path};
 
 pub fn cmd(data_dir: &Path) {
-    println!("{}", "Clearing cluster data directory".green());
+    info!("{}", "Clearing cluster data directory");
     let _ = fs::remove_dir_all(data_dir);
 }

@@ -1,6 +1,5 @@
-use colored::*;
-use ctrlc;
 use serde::Deserialize;
+use std::fs::File;
 use std::io::Write;
 use std::path::Path;
 use std::process::{exit, Child, Command, Stdio};
@@ -8,6 +7,8 @@ use std::sync::{Arc, Mutex, OnceLock};
 use std::thread;
 use std::time::Duration;
 use std::{collections::HashMap, error::Error, fs, path::PathBuf};
+use log::{error, info};
+
 
 const PLUGINS_DIR: &str = "target/debug";
 
@@ -49,11 +50,9 @@ fn enable_plugins(topology: &Topology, data_dir: &Path, picodata_path: &PathBuf)
                 let plugin_dir = plugins_dir.join(service.plugin.clone());
 
                 if !plugin_dir.exists() {
-                    eprintln!(
-                        "{} {} {}",
-                        "[-] Directory ".red(),
-                        plugin_dir.to_str().unwrap(),
-                        "does not exist".red()
+                    error!(
+                        "Directory {} does not exist",
+                        plugin_dir.to_str().unwrap()
                     );
                     shutdown(1);
                 }
@@ -131,11 +130,11 @@ pub fn cmd(
 
     {
         ctrlc::set_handler(move || {
-            println!("{}", "\nReceived Ctrl+C. Shutting down ...".green());
+            info!("{}", "\nReceived Ctrl+C. Shutting down ...");
 
             shutdown(0);
         })
-        .expect(&"Error setting Ctrl+C handler".red());
+        .expect("Error setting Ctrl+C handler");
     }
 
     let topology: &Topology = &toml::from_str(&fs::read_to_string(topology_path)?)?;
@@ -170,10 +169,15 @@ pub fn cmd(
                     tier_name,
                 ])
                 .spawn()
-                .expect(&"Failed to execute process".red());
-            // TODO: parse output and wait next line
-            // main/116/governor_loop I> handling instance state change, current_state: Online(1), instance_id: i1
+                .expect("Failed to execute process");
             thread::sleep(Duration::from_secs(5));
+
+            // Save pid of picodata process to kill it after
+            let pid = process.id();
+            let pid_location = instance_data_dir.join("pid");
+            let mut file = File::create(pid_location)?;
+            writeln!(file, "{}", pid)?;
+
             let processes_lock = Arc::clone(&get_picodata_processes());
             let mut processes = processes_lock.lock().unwrap();
             processes.push(process)
@@ -184,7 +188,19 @@ pub fn cmd(
         enable_plugins(topology, data_dir, picodata_path);
     }
 
+    // Run in the loop until the child processes are killed
+    // with cargo stop or Ctrl+C signal is recieved
     loop {
         thread::sleep(std::time::Duration::from_millis(100));
+        let processes_lock = Arc::clone(&get_picodata_processes());
+        let mut processes = processes_lock.lock().unwrap();
+
+        let all_proccesses_ended = processes.iter_mut().all(|p| p.try_wait().unwrap().is_some());
+
+        if all_proccesses_ended {
+            info!("{}", "All child processes have ended, shutting down...");
+            break;
+        }
     }
+    Ok(())
 }
