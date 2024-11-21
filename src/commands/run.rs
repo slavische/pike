@@ -1,11 +1,10 @@
 use colored::*;
 use ctrlc;
-use lazy_static::lazy_static;
 use serde::Deserialize;
 use std::io::Write;
 use std::path::Path;
 use std::process::{exit, Child, Command, Stdio};
-use std::sync::{Arc, Mutex};
+use std::sync::{Arc, Mutex, OnceLock};
 use std::thread;
 use std::time::Duration;
 use std::{collections::HashMap, error::Error, fs, path::PathBuf};
@@ -30,8 +29,12 @@ struct Topology {
     tiers: HashMap<String, Tier>,
 }
 
-lazy_static! {
-    static ref PICODATA_PROCESSES: Arc<Mutex<Vec<Child>>> = Arc::new(Mutex::new(Vec::new()));
+static PICODATA_PROCESSES: OnceLock<Arc<Mutex<Vec<Child>>>> = OnceLock::new();
+
+fn get_picodata_processes() -> Arc<Mutex<Vec<Child>>> {
+    PICODATA_PROCESSES
+        .get_or_init(|| Arc::new(Mutex::new(Vec::new())))
+        .clone()
 }
 
 fn enable_plugins(topology: &Topology, data_dir: &Path, picodata_path: &PathBuf) {
@@ -109,7 +112,8 @@ fn enable_plugins(topology: &Topology, data_dir: &Path, picodata_path: &PathBuf)
 }
 
 fn shutdown(code: i32) {
-    let mut processes = PICODATA_PROCESSES.lock().unwrap();
+    let processes_lock = Arc::clone(&get_picodata_processes());
+    let mut processes = processes_lock.lock().unwrap();
     for mut process in processes.drain(..) {
         let _ = process.kill();
     }
@@ -170,7 +174,9 @@ pub fn cmd(
             // TODO: parse output and wait next line
             // main/116/governor_loop I> handling instance state change, current_state: Online(1), instance_id: i1
             thread::sleep(Duration::from_secs(5));
-            PICODATA_PROCESSES.lock().unwrap().push(process);
+            let processes_lock = Arc::clone(&get_picodata_processes());
+            let mut processes = processes_lock.lock().unwrap();
+            processes.push(process)
         }
     }
 
