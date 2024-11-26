@@ -31,6 +31,9 @@ enum Command {
         /// Base http port for picodata instances
         #[arg(short, long, default_value = "8000")]
         base_http_ports: i32,
+        /// Port for Pgproto server
+        #[arg(short, long, default_value = "12000")]
+        pg_listen: i32,
         /// Specify path to picodata binary
         #[arg(long, value_name = "BINARY_PATH", default_value = "picodata")]
         picodata_path: PathBuf,
@@ -107,12 +110,14 @@ fn main() -> Result<()> {
             disable_install_plugins,
             base_http_ports,
             picodata_path,
+            pg_listen: pg_ports,
         } => commands::run::cmd(
             topology,
             data_dir,
             !disable_install_plugins,
             base_http_ports,
             picodata_path,
+            pg_ports,
         )
         .context("failed to execute Run command")?,
         Command::Stop { data_dir } => {

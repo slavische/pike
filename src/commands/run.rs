@@ -132,6 +132,7 @@ pub fn cmd(
     is_plugins_instalation_enabled: bool,
     base_http_ports: &i32,
     picodata_path: &PathBuf,
+    pg_base_port: &i32,
 ) -> Result<()> {
     fs::create_dir_all(data_dir).unwrap();
 
@@ -163,6 +164,7 @@ pub fn cmd(
             instance_id += 1;
             let bin_port = 3000 + instance_id;
             let http_port = base_http_ports + instance_id;
+            let pg_port = pg_base_port + instance_id;
             let instance_data_dir = data_dir.join("cluster").join(format!("i_{}", instance_id));
 
             // TODO: make it as child processes with catch output and redirect it to main
@@ -184,6 +186,8 @@ pub fn cmd(
                     &tier.replication_factor.to_string(),
                     "--http-listen",
                     &format!("127.0.0.1:{}", http_port),
+                    "--pg-listen",
+                    &format!("127.0.0.1:{}", pg_port),
                     "--tier",
                     tier_name,
                 ])
