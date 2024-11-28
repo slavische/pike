@@ -1,7 +1,6 @@
+use anyhow::{Context, Result};
 use clap::{Parser, Subcommand};
-use std::{env, path::PathBuf, process::exit};
-use log::error;
-use anyhow::Result;
+use std::{env, path::PathBuf};
 
 mod commands;
 
@@ -97,7 +96,7 @@ enum Config {
     },
 }
 
-fn main() -> Result<()>{
+fn main() -> Result<()> {
     colog::init();
     let cli = Cli::parse_from(env::args().skip(1));
 
@@ -114,24 +113,31 @@ fn main() -> Result<()>{
             !disable_install_plugins,
             base_http_ports,
             picodata_path,
-        ).unwrap_or_else(|e|{
-            error!("Error: {e}");
-            exit(1);
-        }),
-        Command::Stop { data_dir } => commands::stop::cmd(data_dir)?,
-        Command::Clean { data_dir } => commands::clean::cmd(data_dir),
+        )
+        .context("failed to execute Run command")?,
+        Command::Stop { data_dir } => {
+            commands::stop::cmd(data_dir).context("failed to execute \"stop\" command")?
+        }
+        Command::Clean { data_dir } => {
+            commands::clean::cmd(data_dir).context("failed to execute \"clean\" command")?
+        }
         Command::Plugin { command } => match command {
-            Plugin::Pack => commands::plugin::pack::cmd(),
+            Plugin::Pack => {
+                commands::plugin::pack::cmd().context("failed to execute \"pack\" command")?
+            }
             Plugin::New { path, without_git } => {
                 commands::plugin::new::cmd(Some(path), !without_git)
+                    .context("failed to execute \"plugin new\" command")?
             }
-            Plugin::Init { without_git } => commands::plugin::new::cmd(None, !without_git),
+            Plugin::Init { without_git } => commands::plugin::new::cmd(None, !without_git)
+                .context("failed to execute \"init\" command")?,
         },
         Command::Config { command } => match command {
             Config::Apply {
                 config_path,
                 data_dir,
-            } => commands::config::apply::cmd(config_path, data_dir),
+            } => commands::config::apply::cmd(config_path, data_dir)
+                .context("failed to execute \"config apply\" command")?,
         },
     };
     Ok(())

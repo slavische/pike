@@ -1,3 +1,4 @@
+use anyhow::{Context, Result};
 use core::panic;
 use flate2::write::GzEncoder;
 use flate2::Compression;
@@ -35,14 +36,16 @@ fn cargo_build_release() {
     }
 }
 
-pub fn cmd() {
+pub fn cmd() -> Result<()> {
     cargo_build_release();
 
-    let root_dir = env::current_dir().unwrap();
+    let root_dir = env::current_dir()?;
     let release_dir = Path::new(&root_dir).join("target").join("release");
 
-    let cargo_manifest: CargoManifest =
-        toml::from_str(&fs::read_to_string(root_dir.join("Cargo.toml")).unwrap()).unwrap();
+    let cargo_manifest: CargoManifest = toml::from_str(
+        &fs::read_to_string(root_dir.join("Cargo.toml")).context("failed to read Cargo.toml")?,
+    )
+    .context("failed to parse Cargo.toml")?;
 
     let normalized_package_name = cargo_manifest.package.name.replace("-", "_");
 
@@ -50,25 +53,35 @@ pub fn cmd() {
         "target/{}-{}.tar.gz",
         &normalized_package_name, cargo_manifest.package.version
     ))
-    .unwrap();
+    .context("failed to pack the plugin")?;
+
     let mut encoder = GzEncoder::new(compressed_file, Compression::best());
 
+    let lib_name = format!("lib{normalized_package_name}.{LIB_EXT}");
+    let mut lib_file =
+        File::open(release_dir.join(&lib_name)).context(format!("failed to open {}", lib_name))?;
+
+    let mut manifest_file = File::open(release_dir.join("manifest.yaml"))
+        .context("failed to open file manifest.yaml")?;
     {
         let mut tarball = Builder::new(&mut encoder);
 
-        let lib_name = format!("lib{}.{}", normalized_package_name, LIB_EXT);
-        let mut lib_file = File::open(release_dir.join(&lib_name)).unwrap();
-        tarball.append_file(lib_name, &mut lib_file).unwrap();
+        tarball
+            .append_file(lib_name, &mut lib_file)
+            .context(format!(
+                "failed to append lib{normalized_package_name}.{LIB_EXT}"
+            ))?;
 
-        let mut manifest_file = File::open(release_dir.join("manifest.yaml")).unwrap();
         tarball
             .append_file("manifest.yaml", &mut manifest_file)
-            .unwrap();
+            .context("failed to add manifest.yaml to archive")?;
 
         tarball
             .append_dir_all("migrations", release_dir.join("migrations"))
-            .unwrap();
+            .context("failed to append \"migrations\" to archive")?;
     }
 
-    encoder.finish().unwrap();
+    encoder.finish()?;
+
+    Ok(())
 }

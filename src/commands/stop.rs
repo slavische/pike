@@ -1,8 +1,8 @@
+use anyhow::{bail, Context, Result};
 use log::info;
 use std::fs::{self};
 use std::io::{self, BufRead};
 use std::path::Path;
-use anyhow::{bail, Context, Result};  
 use std::process::Command;
 
 pub fn cmd(data_dir: &Path) -> Result<()> {
@@ -10,8 +10,8 @@ pub fn cmd(data_dir: &Path) -> Result<()> {
     let dirs = fs::read_dir(instances_path)?;
 
     info!(
-        "Stopping picodata cluster, data folder: {}",
-        data_dir.to_str().unwrap()
+        "stopping picodata cluster, data folder: {}",
+        data_dir.to_string_lossy()
     );
 
     // Iterate through instance folders and
@@ -21,26 +21,31 @@ pub fn cmd(data_dir: &Path) -> Result<()> {
         let instance_dir = current_dir?.path();
 
         if !instance_dir.is_dir() {
-            bail!("{} is not a directory",
-                instance_dir.to_str().unwrap_or("<undefined>"));
+            bail!("{} is not a directory", instance_dir.to_string_lossy());
         }
         let Some(folder_name) = instance_dir.file_name() else {
             continue;
         };
 
-        if !folder_name.to_str().unwrap().starts_with("i_") {
+        if !folder_name
+            .to_str()
+            .context("invalid folder name")?
+            .starts_with("i_")
+        {
             continue;
         }
 
         let pid_file_path = instance_dir.join("pid");
         if !pid_file_path.exists() {
-            bail!("PID file does not exist in folder: {}",
-                instance_dir.display());
+            bail!(
+                "PID file does not exist in folder: {}",
+                instance_dir.display()
+            );
         }
 
-        let pid = read_pid_from_file(&pid_file_path).context("couldn't read the PID file")?;
-        
-        kill_process_by_pid(pid).context(format!("error killing proccess with PID {}: ", pid))?;
+        let pid = read_pid_from_file(&pid_file_path).context("failed to read the PID file")?;
+
+        kill_process_by_pid(pid).context(format!("error killing proccess with PID: {pid}"))?;
     }
 
     Ok(())
@@ -52,10 +57,10 @@ fn read_pid_from_file(pid_file_path: &Path) -> Result<u32> {
     let mut lines = io::BufReader::new(file).lines();
     let pid_line = lines.next().context("PID file is empty")??;
 
-    let pid = pid_line.trim().parse::<u32>().context(
-        format!("error parsing PID from file {}",
-                    pid_file_path.display())
-    )?;
+    let pid = pid_line.trim().parse::<u32>().context(format!(
+        "error parsing PID from file {}",
+        pid_file_path.display()
+    ))?;
 
     Ok(pid)
 }
@@ -65,11 +70,11 @@ fn kill_process_by_pid(pid: u32) -> Result<()> {
         .args(["-9", &pid.to_string()])
         .status()?;
 
-    if !status.success() {  
-        bail!("failed to kill process with PID: {}", pid)
-    } 
-    
-    info!("successfully killed process with PID: {}", pid);
+    if !status.success() {
+        bail!("failed to kill process with PID: {pid}")
+    }
+
+    info!("successfully killed process with PID: {pid}");
 
     Ok(())
 }

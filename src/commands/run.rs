@@ -1,3 +1,5 @@
+use anyhow::{bail, Context, Result};
+use log::{error, info};
 use serde::Deserialize;
 use std::fs::File;
 use std::io::Write;
@@ -6,9 +8,7 @@ use std::process::{exit, Child, Command, Stdio};
 use std::sync::{Arc, Mutex, OnceLock};
 use std::thread;
 use std::time::Duration;
-use std::{collections::HashMap, error::Error, fs, path::PathBuf};
-use log::{error, info};
-
+use std::{collections::HashMap, fs, path::PathBuf};
 
 const PLUGINS_DIR: &str = "target/debug";
 
@@ -38,7 +38,7 @@ fn get_picodata_processes() -> Arc<Mutex<Vec<Child>>> {
         .clone()
 }
 
-fn enable_plugins(topology: &Topology, data_dir: &Path, picodata_path: &PathBuf) {
+fn enable_plugins(topology: &Topology, data_dir: &Path, picodata_path: &PathBuf) -> Result<()> {
     let plugins_dir = Path::new(PLUGINS_DIR);
     let mut plugins: HashMap<String, String> = HashMap::new();
     for tier in topology.tiers.values() {
@@ -46,16 +46,15 @@ fn enable_plugins(topology: &Topology, data_dir: &Path, picodata_path: &PathBuf)
             continue;
         };
         for service in services {
-            plugins.entry(service.plugin.clone()).or_insert_with(|| {
-                let plugin_dir = plugins_dir.join(service.plugin.clone());
+            let plugin_dir = plugins_dir.join(service.plugin.clone());
 
-                if !plugin_dir.exists() {
-                    error!(
-                        "Directory {} does not exist",
-                        plugin_dir.to_str().unwrap()
-                    );
-                    shutdown(1);
-                }
+            if !plugin_dir.exists() {
+                bail!(
+                    "directory {} does not exist, run \"cargo build\" inside plugin directory",
+                    plugin_dir.display()
+                );
+            }
+            plugins.entry(service.plugin.clone()).or_insert_with(|| {
                 let mut versions: Vec<_> = fs::read_dir(plugin_dir)
                     .unwrap()
                     .map(|r| r.unwrap())
@@ -86,7 +85,9 @@ fn enable_plugins(topology: &Topology, data_dir: &Path, picodata_path: &PathBuf)
         };
         for service in services {
             let plugin_name = &service.plugin;
-            let plugin_version = plugins.get(plugin_name).unwrap();
+            let plugin_version = plugins
+                .get(plugin_name)
+                .context("failed to find plugin version")?;
             let service_name = &service.name;
             queries.push(format!(r#"ALTER PLUGIN "{plugin_name}" {plugin_version} ADD SERVICE "{service_name}" TO TIER "{tier_name}";"#));
         }
@@ -100,23 +101,29 @@ fn enable_plugins(topology: &Topology, data_dir: &Path, picodata_path: &PathBuf)
             .arg(admin_soket.to_str().unwrap())
             .stdin(Stdio::piped())
             .spawn()
-            .unwrap();
+            .context("failed to spawn child proccess of picodata admin")?;
 
         {
             let picodata_stdin = picodata_admin.stdin.as_mut().unwrap();
-            picodata_stdin.write_all(query.as_bytes()).unwrap();
+            picodata_stdin
+                .write_all(query.as_bytes())
+                .context("failed to send plugin installation queries")?;
         }
         thread::sleep(Duration::from_secs(3));
     }
+
+    Ok(())
 }
 
-fn shutdown(code: i32) {
+fn kill_picodata_instances() -> Result<()> {
     let processes_lock = Arc::clone(&get_picodata_processes());
     let mut processes = processes_lock.lock().unwrap();
+
     for mut process in processes.drain(..) {
-        let _ = process.kill();
+        process.kill()?;
     }
-    exit(code);
+
+    Ok(())
 }
 
 pub fn cmd(
@@ -125,19 +132,29 @@ pub fn cmd(
     is_plugins_instalation_enabled: bool,
     base_http_ports: &i32,
     picodata_path: &PathBuf,
-) -> Result<(), Box<dyn Error>> {
+) -> Result<()> {
     fs::create_dir_all(data_dir).unwrap();
 
     {
         ctrlc::set_handler(move || {
-            info!("{}", "\nReceived Ctrl+C. Shutting down ...");
+            info!("{}", "received Ctrl+C. Shutting down ...");
 
-            shutdown(0);
+            kill_picodata_instances()
+                .unwrap_or_else(|e| error!("failed to kill picodata instances: {:#}", e));
+
+            exit(0);
         })
-        .expect("Error setting Ctrl+C handler");
+        .context("failed to set Ctrl+c handler")?;
     }
 
-    let topology: &Topology = &toml::from_str(&fs::read_to_string(topology_path)?)?;
+    let topology: &Topology = &toml::from_str(
+        &fs::read_to_string(topology_path)
+            .context(format!("failed to read {}", topology_path.display()))?,
+    )
+    .context(format!(
+        "failed to parse .toml file of {}",
+        topology_path.display()
+    ))?;
 
     let first_instance_bin_port = 3001;
     let mut instance_id = 0;
@@ -154,7 +171,9 @@ pub fn cmd(
                 .args([
                     "run",
                     "--data-dir",
-                    instance_data_dir.to_str().ok_or("Invalid data dir path")?,
+                    instance_data_dir
+                        .to_str()
+                        .context("Invalid data dir path")?,
                     "--plugin-dir",
                     PLUGINS_DIR,
                     "--listen",
@@ -169,7 +188,10 @@ pub fn cmd(
                     tier_name,
                 ])
                 .spawn()
-                .expect("Failed to execute process");
+                .context(format!(
+                    "failed to start picodata instance: {}",
+                    instance_id
+                ))?;
             thread::sleep(Duration::from_secs(5));
 
             // Save pid of picodata process to kill it after
@@ -185,7 +207,13 @@ pub fn cmd(
     }
 
     if is_plugins_instalation_enabled {
-        enable_plugins(topology, data_dir, picodata_path);
+        enable_plugins(topology, data_dir, picodata_path)
+            .inspect_err(|_| {
+                kill_picodata_instances().unwrap_or_else(|e| {
+                    error!("failed to kill picodata instances: {:#}", e);
+                });
+            })
+            .context("failed to enable plugins")?;
     }
 
     // Run in the loop until the child processes are killed
@@ -195,12 +223,15 @@ pub fn cmd(
         let processes_lock = Arc::clone(&get_picodata_processes());
         let mut processes = processes_lock.lock().unwrap();
 
-        let all_proccesses_ended = processes.iter_mut().all(|p| p.try_wait().unwrap().is_some());
+        let all_proccesses_ended = processes
+            .iter_mut()
+            .all(|p| p.try_wait().unwrap().is_some());
 
         if all_proccesses_ended {
-            info!("{}", "All child processes have ended, shutting down...");
+            info!("{}", "all child processes have ended, shutting down...");
             break;
         }
     }
+
     Ok(())
 }
