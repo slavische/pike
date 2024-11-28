@@ -37,6 +37,9 @@ enum Command {
         /// Specify path to picodata binary
         #[arg(long, value_name = "BINARY_PATH", default_value = "picodata")]
         picodata_path: PathBuf,
+        /// Run Release version of plugin (by default Debug is chosen)
+        #[arg(long)]
+        release: bool,
         // TODO: add demon flag, if true then set output logs to file and release stdin
     },
     // Stop picodata cluster
@@ -64,7 +67,11 @@ enum Command {
 #[derive(Subcommand)]
 enum Plugin {
     /// Pack your plugin into a distributable bundle
-    Pack,
+    Pack {
+        /// Pack the archive with debug version of plugin
+        #[arg(long)]
+        debug: bool,
+    },
     /// Create a new Picodata plugin
     New {
         #[arg(value_name = "path")]
@@ -111,6 +118,7 @@ fn main() -> Result<()> {
             base_http_ports,
             picodata_path,
             pg_listen: pg_ports,
+            release,
         } => commands::run::cmd(
             topology,
             data_dir,
@@ -118,6 +126,7 @@ fn main() -> Result<()> {
             base_http_ports,
             picodata_path,
             pg_ports,
+            !release,
         )
         .context("failed to execute Run command")?,
         Command::Stop { data_dir } => {
@@ -127,8 +136,8 @@ fn main() -> Result<()> {
             commands::clean::cmd(data_dir).context("failed to execute \"clean\" command")?
         }
         Command::Plugin { command } => match command {
-            Plugin::Pack => {
-                commands::plugin::pack::cmd().context("failed to execute \"pack\" command")?
+            Plugin::Pack { debug } => {
+                commands::plugin::pack::cmd(!debug).context("failed to execute \"pack\" command")?
             }
             Plugin::New { path, without_git } => {
                 commands::plugin::new::cmd(Some(path), !without_git)

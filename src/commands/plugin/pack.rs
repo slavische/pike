@@ -36,8 +36,22 @@ fn cargo_build_release() {
     }
 }
 
-pub fn cmd() -> Result<()> {
-    cargo_build_release();
+fn cargo_build_debug() {
+    let output = Command::new("cargo")
+        .args(["build", "--debug"])
+        .output()
+        .expect("failed to execute process");
+    if !output.status.success() {
+        panic!("Build error: {}", String::from_utf8_lossy(&output.stderr));
+    }
+}
+
+pub fn cmd(pack_release: bool) -> Result<()> {
+    if pack_release {
+        cargo_build_release();
+    } else {
+        cargo_build_debug();
+    }
 
     let root_dir = env::current_dir()?;
     let release_dir = Path::new(&root_dir).join("target").join("release");

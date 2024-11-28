@@ -10,8 +10,6 @@ use std::thread;
 use std::time::Duration;
 use std::{collections::HashMap, fs, path::PathBuf};
 
-const PLUGINS_DIR: &str = "target/debug";
-
 #[derive(Debug, Deserialize)]
 struct Service {
     name: String,
@@ -38,8 +36,12 @@ fn get_picodata_processes() -> Arc<Mutex<Vec<Child>>> {
         .clone()
 }
 
-fn enable_plugins(topology: &Topology, data_dir: &Path, picodata_path: &PathBuf) -> Result<()> {
-    let plugins_dir = Path::new(PLUGINS_DIR);
+fn enable_plugins(
+    topology: &Topology,
+    data_dir: &Path,
+    picodata_path: &PathBuf,
+    plugins_dir: &Path,
+) -> Result<()> {
     let mut plugins: HashMap<String, String> = HashMap::new();
     for tier in topology.tiers.values() {
         let Some(services) = &tier.services else {
@@ -133,6 +135,7 @@ pub fn cmd(
     base_http_ports: &i32,
     picodata_path: &PathBuf,
     pg_base_port: &i32,
+    use_plugin_debug: bool,
 ) -> Result<()> {
     fs::create_dir_all(data_dir).unwrap();
 
@@ -157,6 +160,12 @@ pub fn cmd(
         topology_path.display()
     ))?;
 
+    let plugins_dir = if use_plugin_debug {
+        "target/debug"
+    } else {
+        "target/release"
+    };
+
     let first_instance_bin_port = 3001;
     let mut instance_id = 0;
     for (tier_name, tier) in &topology.tiers {
@@ -177,7 +186,7 @@ pub fn cmd(
                         .to_str()
                         .context("Invalid data dir path")?,
                     "--plugin-dir",
-                    PLUGINS_DIR,
+                    plugins_dir,
                     "--listen",
                     &format!("127.0.0.1:{}", bin_port),
                     "--peer",
@@ -211,7 +220,7 @@ pub fn cmd(
     }
 
     if is_plugins_instalation_enabled {
-        enable_plugins(topology, data_dir, picodata_path)
+        enable_plugins(topology, data_dir, picodata_path, Path::new(plugins_dir))
             .inspect_err(|_| {
                 kill_picodata_instances().unwrap_or_else(|e| {
                     error!("failed to kill picodata instances: {:#}", e);
