@@ -1,5 +1,12 @@
 use anyhow::{bail, Context, Result};
-use std::{env, ffi::OsStr, fs, path::Path, process::Command};
+use std::{
+    env,
+    ffi::OsStr,
+    fs::{self, File},
+    io::Write,
+    path::{Path, PathBuf},
+    process::Command,
+};
 
 use include_dir::{include_dir, Dir, DirEntry};
 
@@ -56,7 +63,31 @@ where
     Ok(())
 }
 
-pub fn cmd(path: Option<&Path>, init_git: bool) -> Result<()> {
+fn workspace_init(root_path: &PathBuf, project_name: &str) -> Result<()> {
+    let cargo_toml_path = root_path.join("Cargo.toml");
+
+    let mut cargo_toml =
+        File::create(cargo_toml_path).context("failed to create Cargo.toml for workspace")?;
+
+    cargo_toml
+        .write_all(format!("[workspace]\nmembers = [\n  \"{}\",\n]", project_name).as_bytes())?;
+
+    fs::copy(
+        root_path.join(project_name).join("topology.toml"),
+        root_path.join("topology.toml"),
+    )
+    .context("failed to move topology.toml to workspace dir")?;
+
+    fs::copy(
+        root_path.join(project_name).join("plugin_config.yaml"),
+        root_path.join("plugin_config.yaml"),
+    )
+    .context("failed to move config.yaml to workspace dir")?;
+
+    Ok(())
+}
+
+pub fn cmd(path: Option<&Path>, init_git: bool, init_workspace: bool) -> Result<()> {
     let path = match path {
         Some(p) => {
             if p.exists() {
@@ -66,21 +97,37 @@ pub fn cmd(path: Option<&Path>, init_git: bool) -> Result<()> {
         }
         None => env::current_dir()?,
     };
+    let project_name = &path
+        .file_name()
+        .context("failed to extract project name")?
+        .to_str()
+        .context("failed to parse filename to string")?;
 
-    std::fs::create_dir_all(&path).context(format!("failed to create {}", path.display()))?;
+    let plugin_path = if init_workspace {
+        path.join(project_name)
+    } else {
+        path.to_path_buf()
+    };
+
+    std::fs::create_dir_all(&plugin_path)
+        .context(format!("failed to create {}", plugin_path.display()))?;
 
     let templates_ctx = liquid::object!({
-        "project_name": &path.file_name().context("extracting project name")?.to_str().context("parsing filename to string")?,
+        "project_name": project_name,
     });
 
-    place_file(&path, &templates_ctx, PLUGIN_TEMPLATE.entries())
-        .context("error placing the template")?;
+    place_file(&plugin_path, &templates_ctx, PLUGIN_TEMPLATE.entries())
+        .context("failed to place the template")?;
 
     // init git in plugin repository
     if init_git {
         let project_path = path.to_str().context("failed to extract project path")?;
         git(["-C", project_path, "init"])?;
         git(["-C", project_path, "add", "."])?;
+    }
+
+    if init_workspace {
+        workspace_init(&path, project_name).context("failed to initiate workspace")?;
     }
 
     Ok(())

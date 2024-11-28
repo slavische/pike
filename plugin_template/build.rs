@@ -2,6 +2,8 @@ use fs_extra::dir;
 use fs_extra::dir::CopyOptions;
 use std::env;
 use std::fs;
+use std::fs::File;
+use std::io::{BufRead, BufReader};
 use std::path::{Path, PathBuf};
 
 const MANIFEST_TEMPLATE_NAME: &str = "manifest.yaml.template";
@@ -15,6 +17,21 @@ const LIB_EXT: &str = "dylib";
 fn get_output_path() -> PathBuf {
     let manifest_dir_string = env::var("CARGO_MANIFEST_DIR").unwrap();
     let build_type = env::var("PROFILE").unwrap();
+
+    // Workaround for case, when plugins is a subcrate of workspace
+    let cargo_toml_file: File = File::open("../Cargo.toml").unwrap();
+    let toml_reader = BufReader::new(cargo_toml_file);
+
+    for line in toml_reader.lines() {
+        let line = line.unwrap();
+        if line.contains("workspace") {
+            return Path::new(&manifest_dir_string)
+                .join("..")
+                .join("target")
+                .join(build_type);
+        }
+    }
+
     Path::new(&manifest_dir_string)
         .join("target")
         .join(build_type)

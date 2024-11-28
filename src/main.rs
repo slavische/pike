@@ -79,12 +79,18 @@ enum Plugin {
         /// Disable the automatic git initialization
         #[arg(long)]
         without_git: bool,
+        /// Initiate plugin as a subcrate of workspace
+        #[arg(long, short)]
+        workspace: bool,
     },
     /// Create a new Picodata plugin in an existing directory
     Init {
         /// Disable the automatic git initialization
         #[arg(long)]
         without_git: bool,
+        /// Initiate plugin as a subcrate of workspace
+        #[arg(long, short)]
+        workspace: bool,
     },
 }
 
@@ -139,11 +145,16 @@ fn main() -> Result<()> {
             Plugin::Pack { debug } => {
                 commands::plugin::pack::cmd(!debug).context("failed to execute \"pack\" command")?
             }
-            Plugin::New { path, without_git } => {
-                commands::plugin::new::cmd(Some(path), !without_git)
-                    .context("failed to execute \"plugin new\" command")?
-            }
-            Plugin::Init { without_git } => commands::plugin::new::cmd(None, !without_git)
+            Plugin::New {
+                path,
+                without_git,
+                workspace,
+            } => commands::plugin::new::cmd(Some(path), !without_git, *workspace)
+                .context("failed to execute \"plugin new\" command")?,
+            Plugin::Init {
+                without_git,
+                workspace,
+            } => commands::plugin::new::cmd(None, !without_git, *workspace)
                 .context("failed to execute \"init\" command")?,
         },
         Command::Config { command } => match command {

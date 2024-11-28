@@ -3,6 +3,7 @@ use flate2::write::GzEncoder;
 use flate2::Compression;
 use serde::Deserialize;
 use std::fs::File;
+use std::io::{BufRead, BufReader};
 use std::path::Path;
 use std::process::Command;
 use std::{env, fs};
@@ -39,6 +40,11 @@ fn cargo_build(build_args: Vec<&str>) -> Result<()> {
 
 pub fn cmd(pack_release: bool) -> Result<()> {
     let root_dir = env::current_dir()?;
+    let plugin_name = &root_dir
+        .file_name()
+        .context("extracting project name")?
+        .to_str()
+        .context("parsing filename to string")?;
 
     let build_dir = if pack_release {
         cargo_build(vec!["build", "--release"]).context("building release version of plugin")?;
@@ -48,8 +54,24 @@ pub fn cmd(pack_release: bool) -> Result<()> {
         Path::new(&root_dir).join("target").join("debug")
     };
 
+    let mut manifest_dir = root_dir.clone();
+    // Workaround for case, when plugins is a subcrate of workspace
+    {
+        let cargo_toml_file: File = File::open(root_dir.join("Cargo.toml")).unwrap();
+        let toml_reader = BufReader::new(cargo_toml_file);
+
+        for line in toml_reader.lines() {
+            let line = line?;
+            if line.contains("workspace") {
+                manifest_dir = root_dir.join(plugin_name);
+                break;
+            }
+        }
+    }
+
     let cargo_manifest: CargoManifest = toml::from_str(
-        &fs::read_to_string(root_dir.join("Cargo.toml")).context("failed to read Cargo.toml")?,
+        &fs::read_to_string(manifest_dir.join("Cargo.toml"))
+            .context("failed to read Cargo.toml")?,
     )
     .context("failed to parse Cargo.toml")?;
 
@@ -65,10 +87,10 @@ pub fn cmd(pack_release: bool) -> Result<()> {
 
     let lib_name = format!("lib{normalized_package_name}.{LIB_EXT}");
     let mut lib_file =
-        File::open(release_dir.join(&lib_name)).context(format!("failed to open {}", lib_name))?;
+        File::open(build_dir.join(&lib_name)).context(format!("failed to open {}", lib_name))?;
 
-    let mut manifest_file = File::open(release_dir.join("manifest.yaml"))
-        .context("failed to open file manifest.yaml")?;
+    let mut manifest_file =
+        File::open(build_dir.join("manifest.yaml")).context("failed to open file manifest.yaml")?;
     {
         let mut tarball = Builder::new(&mut encoder);
 
