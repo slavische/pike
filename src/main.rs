@@ -37,7 +37,7 @@ enum Command {
         /// Specify path to picodata binary
         #[arg(long, value_name = "BINARY_PATH", default_value = "picodata")]
         picodata_path: PathBuf,
-        /// Run Release version of plugin (by default Debug is chosen)
+        /// Run release version of plugin
         #[arg(long)]
         release: bool,
         // TODO: add demon flag, if true then set output logs to file and release stdin
@@ -117,7 +117,7 @@ fn main() -> Result<()> {
             disable_install_plugins,
             base_http_ports,
             picodata_path,
-            pg_listen: pg_ports,
+            pg_listen: pg_base_port,
             release,
         } => commands::run::cmd(
             topology,
@@ -125,7 +125,7 @@ fn main() -> Result<()> {
             !disable_install_plugins,
             base_http_ports,
             picodata_path,
-            pg_ports,
+            pg_base_port,
             !release,
         )
         .context("failed to execute Run command")?,

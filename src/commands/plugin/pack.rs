@@ -1,5 +1,4 @@
-use anyhow::{Context, Result};
-use core::panic;
+use anyhow::{bail, Context, Result};
 use flate2::write::GzEncoder;
 use flate2::Compression;
 use serde::Deserialize;
@@ -26,35 +25,28 @@ const LIB_EXT: &str = "so";
 #[cfg(target_os = "macos")]
 const LIB_EXT: &str = "dylib";
 
-fn cargo_build_release() {
+fn cargo_build(build_args: Vec<&str>) -> Result<()> {
     let output = Command::new("cargo")
-        .args(["build", "--release"])
+        .args(build_args)
         .output()
-        .expect("failed to execute process");
+        .context("running cargo build")?;
     if !output.status.success() {
-        panic!("Build error: {}", String::from_utf8_lossy(&output.stderr));
+        bail!("build error: {}", String::from_utf8_lossy(&output.stderr));
     }
-}
 
-fn cargo_build_debug() {
-    let output = Command::new("cargo")
-        .args(["build", "--debug"])
-        .output()
-        .expect("failed to execute process");
-    if !output.status.success() {
-        panic!("Build error: {}", String::from_utf8_lossy(&output.stderr));
-    }
+    Ok(())
 }
 
 pub fn cmd(pack_release: bool) -> Result<()> {
-    if pack_release {
-        cargo_build_release();
-    } else {
-        cargo_build_debug();
-    }
-
     let root_dir = env::current_dir()?;
-    let release_dir = Path::new(&root_dir).join("target").join("release");
+
+    let build_dir = if pack_release {
+        cargo_build(vec!["build", "--release"]).context("building release version of plugin")?;
+        Path::new(&root_dir).join("target").join("release")
+    } else {
+        cargo_build(vec!["build"]).context("building debug version of plugin")?;
+        Path::new(&root_dir).join("target").join("debug")
+    };
 
     let cargo_manifest: CargoManifest = toml::from_str(
         &fs::read_to_string(root_dir.join("Cargo.toml")).context("failed to read Cargo.toml")?,
@@ -91,7 +83,7 @@ pub fn cmd(pack_release: bool) -> Result<()> {
             .context("failed to add manifest.yaml to archive")?;
 
         tarball
-            .append_dir_all("migrations", release_dir.join("migrations"))
+            .append_dir_all("migrations", build_dir.join("migrations"))
             .context("failed to append \"migrations\" to archive")?;
     }
 
