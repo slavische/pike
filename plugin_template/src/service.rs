@@ -7,7 +7,7 @@ pub struct PluginService {}
 
 impl Default for PluginService {
     fn default() -> Self {
-        todo!()
+        Self {}
     }
 }
 
@@ -23,27 +23,27 @@ impl Service for PluginService {
         _ = ctx;
         _ = new_config.unwrap_or_default();
         _ = old_config.unwrap_or_default();
-        todo!()
+        Ok(())
     }
 
     fn on_start(&mut self, context: &PicoContext, config: Self::Config) -> CallbackResult<()> {
         _ = context;
         _ = config.unwrap_or_default();
-        todo!()
+        Ok(())
     }
 
     fn on_stop(&mut self, context: &PicoContext) -> CallbackResult<()> {
         _ = context;
-        todo!()
+        Ok(())
     }
 
     fn on_leader_change(&mut self, context: &PicoContext) -> CallbackResult<()> {
         _ = context;
-        todo!()
+        Ok(())
     }
 
     fn on_health_check(&self, context: &PicoContext) -> CallbackResult<()> {
         _ = context;
-        todo!()
+        Ok(())
     }
 }
