@@ -17,9 +17,16 @@ struct Service {
 }
 
 #[derive(Debug, Deserialize)]
+struct MigrationEnv {
+    name: String,
+    value: String,
+}
+
+#[derive(Debug, Deserialize)]
 struct Tier {
     instances: u8,
     replication_factor: u8,
+    migration_envs: Option<Vec<MigrationEnv>>,
     services: Option<Vec<Service>>,
 }
 
@@ -74,6 +81,9 @@ fn enable_plugins(
     }
 
     let mut queries: Vec<String> = Vec::new();
+    // Queries to set migration variables, order of commands is not important
+    push_migration_envs_queries(&mut queries, topology, &plugins)
+        .context("failed to push migration variables")?;
 
     for (plugin, version) in &plugins {
         queries.push(format!(r#"CREATE PLUGIN "{plugin}" {version};"#));
@@ -112,6 +122,30 @@ fn enable_plugins(
                 .context("failed to send plugin installation queries")?;
         }
         thread::sleep(Duration::from_secs(3));
+    }
+
+    Ok(())
+}
+
+fn push_migration_envs_queries(
+    queries: &mut Vec<String>,
+    topology: &Topology,
+    plugins: &HashMap<String, String>,
+) -> Result<()> {
+    info!("setting migration variables");
+
+    for (_, tier) in &topology.tiers {
+        let Some(migration_envs) = &tier.migration_envs else {
+            continue;
+        };
+        for migration_env in migration_envs {
+            for (plugin, version) in plugins {
+                queries.push(format!(
+                    r#"ALTER PLUGIN {plugin} {version} SET migration_context.{}='{}';"#,
+                    migration_env.name, migration_env.value
+                ));
+            }
+        }
     }
 
     Ok(())
