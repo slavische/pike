@@ -12,6 +12,34 @@ cd cargo
 cargo install --path . --bin cargo-pike --locked --force
 ```
 
+## Quickstart
+
+Начнем работу с новым плагином:
+
+```bash
+cargo pike plugin new test_plugin
+
+cd test_plugin
+cargo build
+```
+
+Запустим кластер, конфигурацию которого можно задать в `./topology.toml`
+
+```bash
+cargo pike run
+```
+
+В вашем распоряжении окажется рабочий кластер с установленным плагином.
+Остановим кластер комбинацией `Ctrl+C` или же командой `cargo pike stop` в отдельном окне.
+
+Если вам нужно собрать архив для поставки на сервера, это можно сделать командой:
+
+```bash
+cargo pike plugin pack
+```
+
+В папке `target` появиться желанный архив.
+
 ## Команды
 
 ### `--help`
@@ -43,6 +71,26 @@ cargo pike run --topology topology.toml --data-dir ./tmp
 ```
 
 Для отключения автоматической установки и включения плагинов можно использовать опцию `--disable-install-plugins`.
+
+### `stop`
+
+Остановить кластер можно либо комбинацией клавиш Ctrl+C в терминале, где вызывалась команда `cargo pike run`, либо в другом окне командой:
+
+```bash
+cargo pike stop --data-dir ./tmp
+```
+
+При помощи `--data-dir` указывается путь до директории с файлами кластера _(значение по умолчанию: ./tmp)_
+
+Вывод:
+
+```bash
+[*] stopping picodata cluster, data folder: ./tmp
+[*] stopping picodata instance: i_1
+[*] stopping picodata instance: i_2
+[*] stopping picodata instance: i_3
+[*] stopping picodata instance: i_4
+```
 
 ### `plugin clean`
 
