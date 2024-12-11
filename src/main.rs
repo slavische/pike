@@ -19,7 +19,7 @@ struct Cli {
 
 #[derive(Subcommand)]
 enum Command {
-    /// Run a Picodata cluster
+    /// Run Picodata cluster
     Run {
         #[arg(short, long, value_name = "TOPOLOGY", default_value = "topology.toml")]
         topology: PathBuf,
@@ -42,7 +42,7 @@ enum Command {
         release: bool,
         // TODO: add demon flag, if true then set output logs to file and release stdin
     },
-    // Stop picodata cluster
+    /// Stop Picodata cluster
     Stop {
         #[arg(short, long, value_name = "DATA_DIR", default_value = "./tmp")]
         data_dir: PathBuf,

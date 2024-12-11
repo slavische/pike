@@ -7,7 +7,10 @@ use std::process::Command;
 
 pub fn cmd(data_dir: &Path) -> Result<()> {
     let instances_path = data_dir.join("cluster");
-    let dirs = fs::read_dir(instances_path)?;
+    let dirs = fs::read_dir(&instances_path).context(format!(
+        "cluster data dir with path {} does not exist",
+        instances_path.to_string_lossy()
+    ))?;
 
     info!(
         "stopping picodata cluster, data folder: {}",
@@ -45,7 +48,14 @@ pub fn cmd(data_dir: &Path) -> Result<()> {
 
         let pid = read_pid_from_file(&pid_file_path).context("failed to read the PID file")?;
 
-        kill_process_by_pid(pid).context(format!("error killing proccess with PID: {pid}"))?;
+        kill_process_by_pid(pid).context(format!(
+            "failed to kill picodata instance: {}",
+            folder_name.to_string_lossy()
+        ))?;
+        info!(
+            "stopping picodata instance: {}",
+            folder_name.to_string_lossy()
+        );
     }
 
     Ok(())
@@ -58,7 +68,7 @@ fn read_pid_from_file(pid_file_path: &Path) -> Result<u32> {
     let pid_line = lines.next().context("PID file is empty")??;
 
     let pid = pid_line.trim().parse::<u32>().context(format!(
-        "error parsing PID from file {}",
+        "failed to parse PID from file {}",
         pid_file_path.display()
     ))?;
 
@@ -71,10 +81,8 @@ fn kill_process_by_pid(pid: u32) -> Result<()> {
         .status()?;
 
     if !status.success() {
-        bail!("failed to kill process with PID: {pid}")
+        bail!("failed to kill picodata instance with PID: {pid}")
     }
-
-    info!("successfully killed process with PID: {pid}");
 
     Ok(())
 }
