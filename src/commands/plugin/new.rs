@@ -87,7 +87,7 @@ fn workspace_init(root_path: &PathBuf, project_name: &str) -> Result<()> {
     Ok(())
 }
 
-pub fn cmd(path: Option<&Path>, init_git: bool, init_workspace: bool) -> Result<()> {
+pub fn cmd(path: Option<&Path>, without_git: bool, init_workspace: bool) -> Result<()> {
     let path = match path {
         Some(p) => {
             if p.exists() {
@@ -120,7 +120,7 @@ pub fn cmd(path: Option<&Path>, init_git: bool, init_workspace: bool) -> Result<
         .context("failed to place the template")?;
 
     // init git in plugin repository
-    if init_git {
+    if !without_git {
         let project_path = path.to_str().context("failed to extract project path")?;
         git(["-C", project_path, "init"])?;
         git(["-C", project_path, "add", "."])?;

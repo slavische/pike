@@ -1,13 +1,15 @@
-use anyhow::{bail, Context, Result};
+use anyhow::{Context, Result};
 use flate2::write::GzEncoder;
 use flate2::Compression;
+use lib::{cargo_build, BuildType};
 use serde::Deserialize;
 use std::fs::File;
 use std::io::{BufRead, BufReader};
 use std::path::Path;
-use std::process::Command;
 use std::{env, fs};
 use tar::Builder;
+
+use crate::commands::lib;
 
 #[derive(Deserialize)]
 struct PackageInfo {
@@ -26,19 +28,7 @@ const LIB_EXT: &str = "so";
 #[cfg(target_os = "macos")]
 const LIB_EXT: &str = "dylib";
 
-fn cargo_build(build_args: Vec<&str>) -> Result<()> {
-    let output = Command::new("cargo")
-        .args(build_args)
-        .output()
-        .context("running cargo build")?;
-    if !output.status.success() {
-        bail!("build error: {}", String::from_utf8_lossy(&output.stderr));
-    }
-
-    Ok(())
-}
-
-pub fn cmd(pack_release: bool) -> Result<()> {
+pub fn cmd(pack_debug: bool) -> Result<()> {
     let root_dir = env::current_dir()?;
     let plugin_name = &root_dir
         .file_name()
@@ -46,11 +36,11 @@ pub fn cmd(pack_release: bool) -> Result<()> {
         .to_str()
         .context("parsing filename to string")?;
 
-    let build_dir = if pack_release {
-        cargo_build(vec!["build", "--release"]).context("building release version of plugin")?;
+    let build_dir = if pack_debug {
+        cargo_build(BuildType::Debug).context("building release version of plugin")?;
         Path::new(&root_dir).join("target").join("release")
     } else {
-        cargo_build(vec!["build"]).context("building debug version of plugin")?;
+        cargo_build(BuildType::Release).context("building debug version of plugin")?;
         Path::new(&root_dir).join("target").join("debug")
     };
 

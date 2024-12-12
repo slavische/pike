@@ -19,9 +19,14 @@ fn get_output_path() -> PathBuf {
     let build_type = env::var("PROFILE").unwrap();
 
     // Workaround for case, when plugins is a subcrate of workspace
+    if !Path::new("../Cargo.toml").exists() {
+        return Path::new(&manifest_dir_string)
+            .join("target")
+            .join(build_type);
+    }
+
     let cargo_toml_file: File = File::open("../Cargo.toml").unwrap();
     let toml_reader = BufReader::new(cargo_toml_file);
-
     for line in toml_reader.lines() {
         let line = line.unwrap();
         if line.contains("workspace") {

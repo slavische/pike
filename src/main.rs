@@ -30,10 +30,10 @@ enum Command {
         disable_install_plugins: bool,
         /// Base http port for picodata instances
         #[arg(short, long, default_value = "8000")]
-        base_http_ports: i32,
+        base_http_port: i32,
         /// Port for Pgproto server
-        #[arg(short, long, default_value = "12000")]
-        pg_listen: i32,
+        #[arg(short, long, default_value = "5432")]
+        base_pg_port: i32,
         /// Specify path to picodata binary
         #[arg(long, value_name = "BINARY_PATH", default_value = "picodata")]
         picodata_path: PathBuf,
@@ -116,54 +116,55 @@ fn main() -> Result<()> {
     colog::init();
     let cli = Cli::parse_from(env::args().skip(1));
 
-    match &cli.command {
+    match cli.command {
         Command::Run {
             topology,
             data_dir,
-            disable_install_plugins,
-            base_http_ports,
+            disable_install_plugins: disable_plugin_install,
+            base_http_port,
             picodata_path,
-            pg_listen: pg_base_port,
+            base_pg_port,
             release,
         } => commands::run::cmd(
-            topology,
-            data_dir,
-            !disable_install_plugins,
-            base_http_ports,
-            picodata_path,
-            pg_base_port,
-            !release,
+            &topology,
+            &data_dir,
+            disable_plugin_install,
+            &base_http_port,
+            &picodata_path,
+            &base_pg_port,
+            release,
         )
         .context("failed to execute Run command")?,
         Command::Stop { data_dir } => {
-            commands::stop::cmd(data_dir).context("failed to execute \"stop\" command")?
+            commands::stop::cmd(&data_dir).context("failed to execute \"stop\" command")?
         }
         Command::Clean { data_dir } => {
-            commands::clean::cmd(data_dir).context("failed to execute \"clean\" command")?
+            commands::clean::cmd(&data_dir).context("failed to execute \"clean\" command")?
         }
         Command::Plugin { command } => match command {
             Plugin::Pack { debug } => {
-                commands::plugin::pack::cmd(!debug).context("failed to execute \"pack\" command")?
+                commands::plugin::pack::cmd(debug).context("failed to execute \"pack\" command")?
             }
             Plugin::New {
                 path,
                 without_git,
                 workspace,
-            } => commands::plugin::new::cmd(Some(path), !without_git, *workspace)
+            } => commands::plugin::new::cmd(Some(&path), without_git, workspace)
                 .context("failed to execute \"plugin new\" command")?,
             Plugin::Init {
                 without_git,
                 workspace,
-            } => commands::plugin::new::cmd(None, !without_git, *workspace)
+            } => commands::plugin::new::cmd(None, without_git, workspace)
                 .context("failed to execute \"init\" command")?,
         },
         Command::Config { command } => match command {
             Config::Apply {
                 config_path,
                 data_dir,
-            } => commands::config::apply::cmd(config_path, data_dir)
+            } => commands::config::apply::cmd(&config_path, &data_dir)
                 .context("failed to execute \"config apply\" command")?,
         },
     };
+
     Ok(())
 }

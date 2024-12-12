@@ -165,11 +165,11 @@ fn kill_picodata_instances() -> Result<()> {
 pub fn cmd(
     topology_path: &PathBuf,
     data_dir: &Path,
-    is_plugins_instalation_enabled: bool,
-    base_http_ports: &i32,
+    disable_plugin_install: bool,
+    base_http_port: &i32,
     picodata_path: &PathBuf,
-    pg_base_port: &i32,
-    use_plugin_debug: bool,
+    base_pg_port: &i32,
+    use_release: bool,
 ) -> Result<()> {
     fs::create_dir_all(data_dir).unwrap();
 
@@ -194,10 +194,10 @@ pub fn cmd(
         topology_path.display()
     ))?;
 
-    let plugins_dir = if use_plugin_debug {
-        "target/debug"
-    } else {
+    let plugins_dir = if use_release {
         "target/release"
+    } else {
+        "target/debug"
     };
 
     let first_instance_bin_port = 3001;
@@ -206,8 +206,8 @@ pub fn cmd(
         for _ in 0..(tier.instances * tier.replication_factor) {
             instance_id += 1;
             let bin_port = 3000 + instance_id;
-            let http_port = base_http_ports + instance_id;
-            let pg_port = pg_base_port + instance_id;
+            let http_port = base_http_port + instance_id;
+            let pg_port = base_pg_port + instance_id;
             let instance_data_dir = data_dir.join("cluster").join(format!("i_{}", instance_id));
 
             // TODO: make it as child processes with catch output and redirect it to main
@@ -253,7 +253,7 @@ pub fn cmd(
         }
     }
 
-    if is_plugins_instalation_enabled {
+    if !disable_plugin_install {
         enable_plugins(topology, data_dir, picodata_path, Path::new(plugins_dir))
             .inspect_err(|_| {
                 kill_picodata_instances().unwrap_or_else(|e| {
