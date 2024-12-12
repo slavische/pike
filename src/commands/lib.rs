@@ -1,8 +1,5 @@
 use anyhow::{bail, Context, Result};
-use std::{
-    path::{Path, PathBuf},
-    process::Command,
-};
+use std::process::Command;
 
 pub enum BuildType {
     Release,
@@ -12,7 +9,7 @@ pub enum BuildType {
 pub fn cargo_build(build_type: BuildType) -> Result<()> {
     let output = match build_type {
         BuildType::Release => Command::new("cargo")
-            .args(vec!["build", "--release"])
+            .args(["build", "--release"])
             .output()
             .context("running cargo build")?,
         BuildType::Debug => Command::new("cargo")

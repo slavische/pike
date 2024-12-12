@@ -20,7 +20,6 @@ cargo install --path . --bin cargo-pike --locked --force
 cargo pike plugin new test_plugin
 
 cd test_plugin
-cargo build
 ```
 
 Запустим кластер, конфигурацию которого можно задать в `./topology.toml`

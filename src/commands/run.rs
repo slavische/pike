@@ -1,4 +1,5 @@
 use anyhow::{bail, Context, Result};
+use lib::cargo_build;
 use log::{error, info};
 use serde::Deserialize;
 use std::fs::File;
@@ -9,6 +10,8 @@ use std::sync::{Arc, Mutex, OnceLock};
 use std::thread;
 use std::time::Duration;
 use std::{collections::HashMap, fs, path::PathBuf};
+
+use crate::commands::lib;
 
 #[derive(Debug, Deserialize)]
 struct Service {
@@ -195,8 +198,10 @@ pub fn cmd(
     ))?;
 
     let plugins_dir = if use_release {
+        cargo_build(lib::BuildType::Release)?;
         "target/release"
     } else {
+        cargo_build(lib::BuildType::Debug)?;
         "target/debug"
     };
 
