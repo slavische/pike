@@ -9,8 +9,8 @@ authors = [
 ]
 description = "Cargo plugin for Picodata plugin development"
 homepage = "https://picodata.io/"
-repository = "https://git.picodata.io/picodata/plugin/cargo-pike"
-documentation = "https://git.picodata.io/picodata/plugin/cargo-pike"
+repository = "https://github.com/picodata/pike"
+documentation = "https://github.com/picodata/pike"
 keywords = ["picodata", "cargo", "plugin"]
 categories = ["development-tools::cargo-plugins"]
 readme = "README.md"
