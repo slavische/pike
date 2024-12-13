@@ -8,6 +8,6 @@ services:
       value: example
 migration:
 {{ "{% for migration in migrations -%}" }}
-    - {{ "{{ migration }}" }}
-{{ "{%- endfor %}" }}
+- {{ "{{ migration }}" }}
+{{ "{% endfor -%}" }}
 
