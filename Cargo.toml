@@ -3,7 +3,10 @@ name = "picodata-pike"
 version = "0.1.0-rc.1"
 edition = "2021"
 license = "BSD-2-Clause"
-authors = ["Evgeniy Mitin <e.mitin@picodata.io>"]
+authors = [
+    "Evgeniy Mitin <e.mitin@picodata.io>",
+    "Alexander Morozov <a.morozov@picodata.io>",
+]
 description = "Cargo plugin for Picodata plugin development"
 homepage = "https://picodata.io/"
 repository = "https://git.picodata.io/picodata/plugin/cargo-pike"
