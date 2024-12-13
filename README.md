@@ -4,12 +4,8 @@
 
 ## Установка
 
-TODO: После публикации на crates.io принцип установки будет существенно упрощен.
-
 ```bash
-git clone git@git.picodata.io:picodata/plugin/cargo.git
-cd cargo
-cargo install --path . --bin cargo-pike --locked --force
+cargo install picodata-pike
 ```
 
 ## Quickstart
