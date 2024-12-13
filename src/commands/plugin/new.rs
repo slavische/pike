@@ -30,7 +30,15 @@ fn place_file(target_path: &Path, t_ctx: &liquid::Object, entries: &[DirEntry<'_
                         inner_file.path().to_string_lossy()
                     ))?;
 
-                let dest_path = Path::new(&target_path).join(inner_file.path());
+                // crutch for prevent excluding plugin_template directory from package
+                // https://github.com/rust-lang/cargo/issues/8597
+                let inner_file_path = if inner_file.path().ends_with("_Cargo.toml") {
+                    &inner_file.path().parent().unwrap().join("Cargo.toml")
+                } else {
+                    inner_file.path()
+                };
+
+                let dest_path = Path::new(&target_path).join(inner_file_path);
                 if let Some(dest_dir) = dest_path.parent() {
                     if !dest_dir.exists() {
                         std::fs::create_dir_all(dest_dir)?;
