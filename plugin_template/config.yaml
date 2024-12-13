@@ -1,0 +1,13 @@
+cluster:
+  name: "{{ project_name }}"
+  tier:
+    default:
+      replication_factor: 2
+  default_replication_factor: 2
+
+instance:
+  log:
+    level: warn
+    format: plain
+  memtx:
+    memory: 67108864
