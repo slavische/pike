@@ -44,4 +44,4 @@
    git push origin master --follow-tags
    ```
 
-1. [Create](https://github.com/lowitea/gitlobster/releases/new) a new release specifying pushed tag
+1. [Create](https://github.com/picodata/pike/releases/new) a new release specifying pushed tag
