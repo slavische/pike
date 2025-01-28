@@ -20,10 +20,16 @@
    cargo update
    ```
 
+1. Update `CHANGELOG.md`
+
+   ```shell
+   vim CHANGELOG.md
+   ```
+
 1. Commit `Cargo.toml` and `Cargo.lock` with the version
 
    ```shell
-   git commit -m "bump version" Cargo.toml Cargo.lock
+   git commit -m "chore: bump version" Cargo.toml Cargo.lock CHANGELOG.md
    ```
 
 1. Make a new git tag
