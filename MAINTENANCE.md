@@ -26,10 +26,16 @@
    vim CHANGELOG.md
    ```
 
-1. Commit `Cargo.toml` and `Cargo.lock` with the version
+1. Update pike version in template dependencies
 
    ```shell
-   git commit -m "chore: bump version" Cargo.toml Cargo.lock CHANGELOG.md
+   vim plugin_template/_Cargo.toml
+   ```
+
+1. Commit changed files
+
+   ```shell
+   git commit -m "chore: bump version" Cargo.toml Cargo.lock CHANGELOG.md plugin_template/_Cargo.toml
    ```
 
 1. Make a new git tag
