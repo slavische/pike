@@ -14,7 +14,6 @@ documentation = "https://github.com/picodata/pike"
 keywords = ["picodata", "cargo", "plugin"]
 categories = ["development-tools::cargo-plugins"]
 readme = "README.md"
-rust-version = "1.85"
 resolver = "3"
 
 [dependencies]
