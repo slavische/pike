@@ -4,13 +4,13 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](http://keepachangelog.com/) and this project adheres to [Semantic Versioning](http://semver.org/).
 
-## [Unreleased]
+## [2.1.0]
 
 ### Added
 
 - Support passing plugin config as a map to the "config apply" command API (a2a1a8b)
 
-### Changed
+### Fixed
 
 - Sort migration files, before inserting into `manifest.yaml` (fc01dca)
 
