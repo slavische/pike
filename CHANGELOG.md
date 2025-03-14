@@ -4,6 +4,18 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](http://keepachangelog.com/) and this project adheres to [Semantic Versioning](http://semver.org/).
 
+## [2.1.1]
+
+### Changed
+
+- Get names of instances from cluster (8fcf671a)
+- Accelerated cluster launch (8fcf671a)
+- Move built files in archive into plugin_name/version subfolder (0d96cea0)
+
+### Fixed
+
+- Pass replication_factor to cluster config (d32c364c)
+
 ## [2.1.0]
 
 ### Added
