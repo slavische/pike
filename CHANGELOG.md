@@ -4,6 +4,12 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](http://keepachangelog.com/) and this project adheres to [Semantic Versioning](http://semver.org/).
 
+## [2.1.2]
+
+### Fixed
+
+- Invert version check. This change gives us ability to run pike with picodata version > 25.1 (3b6b608)
+
 ## [2.1.1]
 
 ### Changed
