@@ -4,9 +4,19 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](http://keepachangelog.com/) and this project adheres to [Semantic Versioning](http://semver.org/).
 
+## [2.3.0]
+
 ### Added
 
-- Access to pg_port of picodata test instance 
+- Access to pg_port of picodata test instance (9062690)
+- Implement `enter` command (7908f36)
+- Add `--plugin-path` flag for clean command (bca646d)
+- Add `--no-build` flag to pike run (4a730d4)
+- Add warnings for alien field in `topology.toml` (1f42af5)
+
+### Fixed
+
+- Fix apply config for service with dash in name (16b674c)
 
 ## [2.2.2]
 
