@@ -419,16 +419,6 @@ impl PicodataInstance {
 
     #[allow(dead_code)]
     #[allow(clippy::must_use_candidate)]
-    #[deprecated(
-        since = "2.3.2",
-        note = "Use properties() function to get all info about instance at once"
-    )]
-    pub fn bin_port(&self) -> &u16 {
-        &self.bin_port
-    }
-
-    #[allow(dead_code)]
-    #[allow(clippy::must_use_candidate)]
     pub fn properties(&self) -> PicodataInstanceProperties<'_> {
         PicodataInstanceProperties {
             bin_port: &self.bin_port,
