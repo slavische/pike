@@ -11,11 +11,11 @@ serde = { version = "1", features = ["derive"] }
 log = "0.4"
 
 [dev-dependencies]
-picodata-pike = "2.3.1"
+picodata-pike = "2.4.0"
 reqwest = { version = "0.12", features = ["blocking"] }
 
 [build-dependencies]
-picodata-pike = "2.3.1"
+picodata-pike = "2.4.0"
 
 [lib]
 crate-type = ["cdylib"]
