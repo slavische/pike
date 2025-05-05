@@ -4,6 +4,16 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](http://keepachangelog.com/) and this project adheres to [Semantic Versioning](http://semver.org/).
 
+## [2.4.1]
+
+### Changed
+
+- Improve plugin template (add rpc, http endpoints) (9379788, 655dd63)
+
+### Fixed
+
+- Add handling for picodata admin failure (54ddee2)
+
 ## [2.4.0]
 
 ### Added
