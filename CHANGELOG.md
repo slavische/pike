@@ -4,6 +4,18 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](http://keepachangelog.com/) and this project adheres to [Semantic Versioning](http://semver.org/).
 
+## [2.4.3]
+
+### Changed
+
+- Add rpc handle test to template (15e353b)
+- Remove Option from Service config in template (841f0e9)
+- Rename main service to example_service (5e98601)
+
+### Fixed
+
+- Add human readable error if Picodata not found (709ba2d)
+
 ## [2.4.2]
 
 ### Fixed
