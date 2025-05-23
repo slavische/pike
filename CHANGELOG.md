@@ -8,6 +8,12 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 
 ### Changed
 
+- Bump Picodata version from 25.1.1 to 25.1.2 (665bfd2)
+
+## [2.4.3]
+
+### Changed
+
 - Add rpc handle test to template (15e353b)
 - Remove Option from Service config in template (841f0e9)
 - Rename main service to example_service (5e98601)
