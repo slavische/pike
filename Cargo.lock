@@ -756,7 +756,7 @@ dependencies = [
 
 [[package]]
 name = "picodata-pike"
-version = "2.4.4"
+version = "2.4.5"
 dependencies = [
  "anyhow",
  "clap",

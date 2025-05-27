@@ -6,6 +6,8 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 
 ## [UNRELEASED]
 
+## [2.4.5]
+
 ### Changed
 
 - Bump Picodata version from 25.1.2 to 25.2.1
