@@ -174,10 +174,7 @@ fn apply_plugin_config(params: &Params, current_plugin_path: &str) -> Result<()>
             &service_name,
             &service_config,
             &admin_socket,
-        )
-        .context(format!(
-            "failed to apply service config for service {service_name}"
-        ))?;
+        )?;
     }
 
     Ok(())
