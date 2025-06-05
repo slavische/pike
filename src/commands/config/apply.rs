@@ -141,7 +141,7 @@ fn apply_service_config(
         }
 
         if exit_status == 1 {
-            bail!("failed to execute picodata query {query}: {a}");
+            bail!("failed to execute picodata query {query}: context {a}");
         }
     }
 
