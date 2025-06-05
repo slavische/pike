@@ -7,7 +7,7 @@ use std::{
     env, fs,
     io::{BufRead, BufReader, Read, Write},
     path::{Path, PathBuf},
-    process::{self, Command, Stdio},
+    process::{self, Command, Stdio}, ptr::write,
 };
 
 /// Mapping of plugin service names to their properties specified in
@@ -128,11 +128,15 @@ fn apply_service_config(
             Box::new(picodata_admin.stdout.unwrap()),
             Box::new(picodata_admin.stderr.unwrap()),
         ];
+
+ use std::fmt::Write;
+        let mut a = String::new();
         for output in outputs {
             let reader = BufReader::new(output);
             for line in reader.lines() {
                 let line = line.expect("failed to read picodata admin output");
                 log::info!("picodata admin: {line}");
+                write!(a, " line: {line}")?;
             }
         }
 
@@ -174,7 +178,10 @@ fn apply_plugin_config(params: &Params, current_plugin_path: &str) -> Result<()>
             &service_name,
             &service_config,
             &admin_socket,
-        )?;
+        )
+        .context(format!(
+            "failed to apply service config for service {service_name}"
+        ))?;
     }
 
     Ok(())
