@@ -6,6 +6,8 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 
 ## [UNRELEASED]
 
+## [5.7.1]
+
 ### Fixed
 
 - `pike stop` on Linux waits until every thread of an instance has exited, on a pidfd. It took a zombie main thread for a stopped process, while the other threads still held the instance's data directory, so a `pike run` right after could fail to lock it
