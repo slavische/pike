@@ -6,6 +6,8 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 
 ## [UNRELEASED]
 
+## [5.8.0]
+
 ### Added
 
 - `config` key in `[plugin.<name>]` of `topology.toml`: service configuration from a YAML file is applied by `pike run` after `MIGRATE TO` and before `ENABLE`, so `on_start` sees it
