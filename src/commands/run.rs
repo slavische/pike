@@ -1132,9 +1132,9 @@ pub struct Params {
     with_audit: bool,
     #[builder(default = DEFAULT_VSHARD_DISCOVERY_ENABLED)]
     wait_vshard_discovery: bool,
-    #[builder(default = DEFAULT_VSHARD_DISCOVERY_TIMEOUT)]
+    #[builder(default = DEFAULT_VSHARD_DISCOVERY_TIMEOUT, setter(into))]
     wait_vshard_discovery_timeout: Timeout,
-    #[builder(default = DEFAULT_INSTANCE_ONLINE_TIMEOUT)]
+    #[builder(default = DEFAULT_INSTANCE_ONLINE_TIMEOUT, setter(into))]
     wait_instance_online_timeout: Timeout,
     /// Plugin name -> source of its service config (file or in-memory map).
     /// Replaces `config` from the plugin's section in the topology

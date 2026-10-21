@@ -17,7 +17,7 @@ impl Timeout {
     }
 
     pub fn parse_secs(s: &str) -> Result<Self, ParseIntError> {
-        s.parse::<u64>().map(Self::from_secs)
+        s.parse().map(Self::from_secs)
     }
 }
 
@@ -46,6 +46,12 @@ impl From<Timeout> for Duration {
 impl From<Duration> for Timeout {
     fn from(d: Duration) -> Self {
         Self(d)
+    }
+}
+
+impl From<u64> for Timeout {
+    fn from(seconds: u64) -> Self {
+        Self::from_secs(seconds)
     }
 }
 
