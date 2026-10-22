@@ -39,6 +39,16 @@ for _, router in pairs(vshard.router.internal.routers) do \
 end; \
 return require('json').encode(out)";
 
+// The chunk returns a value so that its output can be parsed like any other query.
+const REBALANCER_WAKEUP: &str = "\\lua\nvshard.storage.rebalancer_wakeup() return true";
+
+// The chunk returns a value so that its output can be parsed like any other query.
+const ROUTER_DISCOVERY_WAKEUP: &str = "\\lua\n\
+for _, router in pairs(vshard.router.internal.routers) do \
+    router:discovery_wakeup(); \
+end; \
+return true";
+
 fn parse_lua_json(lua_output: &str) -> Result<HashMap<String, u32>> {
     let trimmed = lua_output.trim();
 
@@ -73,7 +83,7 @@ impl FromStr for InstanceState {
             "online" => Self::Online,
             "offline" => Self::Offline,
             "expelled" => Self::Expelled,
-            unknown => bail!("Unknown instane state variant: '{unknown}'"),
+            unknown => bail!("Unknown instance state variant: '{unknown}'"),
         };
 
         Ok(state)
@@ -137,6 +147,18 @@ impl<'a> InstanceSocketClient<'a> {
     pub fn vshard_replicaset_map(&self) -> Result<HashMap<String, u32>> {
         self.get_lua_single_line_output(GET_VSHARD_REPLICASET_MAP)
             .and_then(|o| parse_lua_json(&o))
+    }
+
+    /// Wakes up the vshard rebalancer, if it runs on this instance.
+    pub fn rebalancer_wakeup(&self) -> Result<()> {
+        let _: bool = self.get_parsed_lua_output(REBALANCER_WAKEUP)?;
+        Ok(())
+    }
+
+    /// Wakes up the discovery of every vshard router on this instance.
+    pub fn router_discovery_wakeup(&self) -> Result<()> {
+        let _: bool = self.get_parsed_lua_output(ROUTER_DISCOVERY_WAKEUP)?;
+        Ok(())
     }
 
     /// Fetches configured number of buckets in the instance tier.
