@@ -123,7 +123,8 @@ fn wait_for_initial_resharding(
     let start = Instant::now();
     info!("Waiting for initial resharding");
 
-    let expected_bucket_counts = collect_expected_bucket_counts(instances, picodata_path)?;
+    let expected_bucket_counts = collect_expected_bucket_counts(instances, picodata_path)
+        .context("unable to collect expected bucket counts")?;
     let mut poller = Poller::new(policy);
 
     let bucket_count_per_replicaset = loop {
@@ -167,18 +168,14 @@ fn collect_expected_bucket_counts(
             continue;
         }
         let client = instance.socket_client(picodata_path);
-        let read = || -> Result<RangeInclusive<u32>> {
-            let replicaset_count = client.tier_replicaset_count()?;
-            let bucket_count = client.tier_bucket_count()?;
-            ensure!(replicaset_count > 0, "tier has no replicasets");
-            Ok(bucket_count / replicaset_count..=bucket_count.div_ceil(replicaset_count))
-        };
-        let expected = read().with_context(|| {
-            format!(
-                "instance '{}': unable to read info of tier '{}'",
-                instance.instance_name, instance.tier
-            )
-        })?;
+        let replicaset_count = client.tier_replicaset_count()?;
+        let bucket_count = client.tier_bucket_count()?;
+        ensure!(
+            replicaset_count > 0,
+            "tier '{}' has no replicasets",
+            instance.tier
+        );
+        let expected = bucket_count / replicaset_count..=bucket_count.div_ceil(replicaset_count);
         result.insert(instance.tier.clone(), expected);
     }
     Ok(result)
@@ -190,9 +187,7 @@ fn is_resharding_complete(
     bucket_count_per_instance: &HashMap<String, u32>,
 ) -> bool {
     instances.iter().all(|instance| {
-        let Some(expected) = expected_bucket_counts.get(&instance.tier) else {
-            return false;
-        };
+        let expected = expected_bucket_counts.get(&instance.tier).unwrap();
         bucket_count_per_instance
             .get(&instance.instance_name)
             .is_some_and(|bucket_count| expected.contains(bucket_count))
@@ -210,19 +205,12 @@ fn collect_master_bucket_counts(
         let client = instance.socket_client(picodata_path);
         let replicaset_uuid = client
             .replicaset_uuid()
-            .with_context(|| format!("instance '{name}': unable to read replicaset uuid"))?;
+            .with_context(|| format!("instance '{name}'"))?;
         let is_master = client
             .is_master_of_replicaset(&replicaset_uuid)
-            .with_context(|| {
-                format!(
-                    "instance '{name}': unable to check master role \
-                     in replicaset '{replicaset_uuid}'"
-                )
-            })?;
+            .with_context(|| format!("instance '{name}'"))?;
         if is_master {
-            let bucket_count = *bucket_count_per_instance
-                .get(name)
-                .with_context(|| format!("instance '{name}': bucket count is unknown"))?;
+            let bucket_count = *bucket_count_per_instance.get(name).unwrap();
             info!("Replicaset '{replicaset_uuid}' has {bucket_count} known bucket(s)");
             result.insert(replicaset_uuid, bucket_count);
         }

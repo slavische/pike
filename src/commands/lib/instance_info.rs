@@ -190,19 +190,23 @@ impl<'a> InstanceSocketClient<'a> {
     /// Fetches UUID of the instance's replicaset.
     pub fn replicaset_uuid(&self) -> Result<String> {
         self.get_parsed_lua_output(GET_REPLICASET_UUID)
+            .context("unable to determine replicaset uuid")
     }
 
     /// Checks whether current instance is a master in replicaset
     /// according to `_pico_replicaset` table.
     pub fn is_master_of_replicaset(&self, replicaset_uuid: &str) -> Result<bool> {
-        let instance_name = self.instance_name()?;
+        let error_context =
+            || format!("unable to determine master of replicaset '{replicaset_uuid}'");
+
+        let instance_name = self.instance_name().with_context(error_context)?;
 
         let current_master_name: String = self.get_parsed_lua_output(&format!(
             "\\lua\npico.sql(\"select current_master_name from _pico_replicaset where uuid = ?\", {{ \"{replicaset_uuid}\" }}).rows[1][1]",
-        ))?;
+        )).with_context(error_context)?;
         let target_master_name: String = self.get_parsed_lua_output(&format!(
             "\\lua\npico.sql(\"select target_master_name from _pico_replicaset where uuid = ?\", {{ \"{replicaset_uuid}\" }}).rows[1][1]",
-        ))?;
+        )).with_context(error_context)?;
 
         if current_master_name != target_master_name {
             warn!("Master change is in progress; using target master name");

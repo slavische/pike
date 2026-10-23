@@ -1888,9 +1888,9 @@ mod tests {
             .unwrap();
         assert_eq!(
             params.wait_vshard_discovery_timeout,
-            Timeout::from_secs(600)
+            DEFAULT_VSHARD_DISCOVERY_TIMEOUT
         );
-        assert_eq!(params.wait_vshard_idle_timeout, Timeout::from_secs(60));
+        assert_eq!(params.wait_vshard_idle_timeout, DEFAULT_VSHARD_IDLE_TIMEOUT);
     }
 
     #[test]
