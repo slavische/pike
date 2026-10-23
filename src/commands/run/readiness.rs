@@ -3,9 +3,11 @@ use crate::commands::{
     run::Params,
 };
 use crate::healthcheck::api;
-use anyhow::{bail, Context, Result};
+use anyhow::{bail, ensure, Context, Result};
 use log::{debug, info};
 use std::collections::HashMap;
+use std::ops::RangeInclusive;
+use std::path::PathBuf;
 use std::thread;
 use std::time::{Duration, Instant};
 
@@ -93,12 +95,14 @@ pub(super) fn wait_vshard_discovery(instances: &[PicodataInstance], params: &Par
     );
 
     let picodata_path = &params.picodata_path;
-    let clients: Vec<_> = instances
-        .iter()
-        .map(|i| (i.instance_name.clone(), i.socket_client(picodata_path)))
-        .collect();
-    let bucket_count_per_replicaset = wait_for_initial_resharding(&clients, &policy)?;
-    wait_for_vshard_router_init(&clients, &bucket_count_per_replicaset, &policy)?;
+    let bucket_count_per_replicaset =
+        wait_for_initial_resharding(instances, picodata_path, &policy)?;
+    wait_for_vshard_router_init(
+        instances,
+        picodata_path,
+        &bucket_count_per_replicaset,
+        &policy,
+    )?;
 
     info!(
         "Vshard discovery has been completed on all instances within {:.2?}",
@@ -112,46 +116,32 @@ pub(super) fn wait_vshard_discovery(instances: &[PicodataInstance], params: &Par
 /// Returns a map of replicaset UUID → bucket count (collected from masters),
 /// or fails if the total or idle timeout is exceeded.
 fn wait_for_initial_resharding(
-    clients: &[(String, InstanceSocketClient)],
+    instances: &[PicodataInstance],
+    picodata_path: &PathBuf,
     policy: &PollPolicy,
 ) -> Result<HashMap<String, u32>> {
     let start = Instant::now();
     info!("Waiting for initial resharding");
 
-    let mut instance_tier_info: HashMap<String, TierInfo> = HashMap::new();
-    let mut bucket_count_per_instance: HashMap<String, u32> = HashMap::new();
+    let expected_bucket_counts = collect_expected_bucket_counts(instances, picodata_path)?;
     let mut poller = Poller::new(policy);
 
     let bucket_count_per_replicaset = loop {
-        wakeup_all(clients, InstanceSocketClient::rebalancer_wakeup);
+        wakeup_rebalancer(instances, picodata_path)?;
 
-        if instance_tier_info.len() != clients.len() {
-            let tier_info = read_all(clients, |client| {
-                Ok(TierInfo {
-                    replicaset_count: client.tier_replicaset_count()?,
-                    bucket_count: client.tier_bucket_count()?,
-                })
-            });
-            match tier_info {
-                Ok(tier_info) => instance_tier_info = tier_info,
-                Err(err) => debug!("unable to read tier info: {err:#}"),
-            }
-        }
-
-        match read_all(clients, InstanceSocketClient::bucket_count) {
-            Ok(bucket_count) => {
-                bucket_count_per_instance = bucket_count;
-                if is_resharding_complete(&instance_tier_info, &bucket_count_per_instance) {
-                    // The master role is checked after resharding: it may change while waiting.
-                    match collect_master_bucket_counts(clients, &bucket_count_per_instance) {
-                        Ok(result) => break result,
-                        Err(err) => {
-                            debug!("unable to collect bucket counts from masters: {err:#}");
-                        }
-                    }
-                }
-            }
-            Err(err) => debug!("unable to read bucket count: {err:#}"),
+        let bucket_count_per_instance =
+            read_all(instances, picodata_path, InstanceSocketClient::bucket_count)?;
+        if is_resharding_complete(
+            instances,
+            &expected_bucket_counts,
+            &bucket_count_per_instance,
+        ) {
+            // The master role is checked after resharding: it may change while waiting.
+            break collect_master_bucket_counts(
+                instances,
+                picodata_path,
+                &bucket_count_per_instance,
+            )?;
         }
 
         poller
@@ -167,31 +157,57 @@ fn wait_for_initial_resharding(
     Ok(bucket_count_per_replicaset)
 }
 
-struct TierInfo {
-    replicaset_count: u32,
-    bucket_count: u32,
+fn collect_expected_bucket_counts(
+    instances: &[PicodataInstance],
+    picodata_path: &PathBuf,
+) -> Result<HashMap<String, RangeInclusive<u32>>> {
+    let mut result = HashMap::new();
+    for instance in instances {
+        if result.contains_key(&instance.tier) {
+            continue;
+        }
+        let client = instance.socket_client(picodata_path);
+        let read = || -> Result<RangeInclusive<u32>> {
+            let replicaset_count = client.tier_replicaset_count()?;
+            let bucket_count = client.tier_bucket_count()?;
+            ensure!(replicaset_count > 0, "tier has no replicasets");
+            Ok(bucket_count / replicaset_count..=bucket_count.div_ceil(replicaset_count))
+        };
+        let expected = read().with_context(|| {
+            format!(
+                "instance '{}': unable to read info of tier '{}'",
+                instance.instance_name, instance.tier
+            )
+        })?;
+        result.insert(instance.tier.clone(), expected);
+    }
+    Ok(result)
 }
 
 fn is_resharding_complete(
-    instance_tier_info: &HashMap<String, TierInfo>,
+    instances: &[PicodataInstance],
+    expected_bucket_counts: &HashMap<String, RangeInclusive<u32>>,
     bucket_count_per_instance: &HashMap<String, u32>,
 ) -> bool {
-    bucket_count_per_instance
-        .iter()
-        .all(|(name, &bucket_count)| {
-            instance_tier_info.get(name).is_some_and(|tier| {
-                (tier.replicaset_count * bucket_count).abs_diff(tier.bucket_count)
-                    < tier.replicaset_count
-            })
-        })
+    instances.iter().all(|instance| {
+        let Some(expected) = expected_bucket_counts.get(&instance.tier) else {
+            return false;
+        };
+        bucket_count_per_instance
+            .get(&instance.instance_name)
+            .is_some_and(|bucket_count| expected.contains(bucket_count))
+    })
 }
 
 fn collect_master_bucket_counts(
-    clients: &[(String, InstanceSocketClient)],
+    instances: &[PicodataInstance],
+    picodata_path: &PathBuf,
     bucket_count_per_instance: &HashMap<String, u32>,
 ) -> Result<HashMap<String, u32>> {
     let mut result = HashMap::new();
-    for (name, client) in clients {
+    for instance in instances {
+        let name = &instance.instance_name;
+        let client = instance.socket_client(picodata_path);
         let replicaset_uuid = client
             .replicaset_uuid()
             .with_context(|| format!("instance '{name}': unable to read replicaset uuid"))?;
@@ -217,29 +233,28 @@ fn collect_master_bucket_counts(
 /// Waits until vshard.router is initialized and synchronized on all instances,
 /// or returns an error if the total or idle timeout is exceeded.
 fn wait_for_vshard_router_init(
-    clients: &[(String, InstanceSocketClient)],
+    instances: &[PicodataInstance],
+    picodata_path: &PathBuf,
     bucket_count_per_replicaset: &HashMap<String, u32>,
     policy: &PollPolicy,
 ) -> Result<()> {
     let start = Instant::now();
     info!("Waiting for vshard initialization");
 
-    let mut router_view_per_instance = HashMap::new();
     let mut poller = Poller::new(policy);
     loop {
-        wakeup_all(clients, InstanceSocketClient::router_discovery_wakeup);
+        wakeup_discovery(instances, picodata_path)?;
 
-        match read_all(clients, InstanceSocketClient::vshard_replicaset_map) {
-            Ok(view) => {
-                router_view_per_instance = view;
-                if router_view_per_instance
-                    .values()
-                    .all(|view| view == bucket_count_per_replicaset)
-                {
-                    break;
-                }
-            }
-            Err(err) => debug!("unable to read vshard replicaset map: {err:#}"),
+        let router_view_per_instance = read_all(
+            instances,
+            picodata_path,
+            InstanceSocketClient::vshard_replicaset_map,
+        )?;
+        if router_view_per_instance
+            .values()
+            .all(|view| view == bucket_count_per_replicaset)
+        {
+            break;
         }
 
         poller
@@ -255,26 +270,48 @@ fn wait_for_vshard_router_init(
     Ok(())
 }
 
-fn wakeup_all<'a>(
-    clients: &[(String, InstanceSocketClient<'a>)],
-    wakeup: impl Fn(&InstanceSocketClient<'a>) -> Result<()>,
-) {
-    for (name, client) in clients {
-        if let Err(err) = wakeup(client) {
-            debug!("Instance '{name}': wakeup failed: {err:#}");
-        }
+fn wakeup_rebalancer(instances: &[PicodataInstance], picodata_path: &PathBuf) -> Result<()> {
+    for instance in instances {
+        instance
+            .socket_client(picodata_path)
+            .rebalancer_wakeup()
+            .with_context(|| {
+                format!(
+                    "instance '{}': rebalancer wakeup failed",
+                    instance.instance_name
+                )
+            })?;
     }
+    Ok(())
+}
+
+fn wakeup_discovery(instances: &[PicodataInstance], picodata_path: &PathBuf) -> Result<()> {
+    for instance in instances {
+        instance
+            .socket_client(picodata_path)
+            .router_discovery_wakeup()
+            .with_context(|| {
+                format!(
+                    "instance '{}': router discovery wakeup failed",
+                    instance.instance_name
+                )
+            })?;
+    }
+    Ok(())
 }
 
 /// Fails on the first failed read.
 fn read_all<'a, V>(
-    clients: &[(String, InstanceSocketClient<'a>)],
+    instances: &[PicodataInstance],
+    picodata_path: &'a PathBuf,
     read: impl Fn(&InstanceSocketClient<'a>) -> Result<V>,
 ) -> Result<HashMap<String, V>> {
-    clients
+    instances
         .iter()
-        .map(|(name, client)| {
-            let value = read(client).with_context(|| format!("instance '{name}'"))?;
+        .map(|instance| {
+            let name = &instance.instance_name;
+            let value = read(&instance.socket_client(picodata_path))
+                .with_context(|| format!("instance '{name}'"))?;
             Ok((name.clone(), value))
         })
         .collect()

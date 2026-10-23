@@ -15,12 +15,10 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 ### Fixed
 
 - Fail with an error if waiting for instance to become `Online` times out ([#421](https://github.com/picodata/pike/issues/421))
-- `--wait-vshard-discovery-timeout 0` no longer always fails with "no time left for vshard initialization": readiness is checked before the timeout, so an already ready cluster passes ([#409](https://github.com/picodata/pike/issues/409))
 
 ### Changed
 
 - `--wait-vshard-discovery-timeout` is now the total timeout for both vshard rebalancing and discovery; its default is raised from 300s to 600s ([#409](https://github.com/picodata/pike/issues/409))
-- Errors while polling instances no longer abort waiting for vshard readiness immediately: they are logged at debug level, and waiting goes on until the idle or total timeout ([#409](https://github.com/picodata/pike/issues/409))
 - Bump rust to 1.99
 - Bump picodata-plugin to 26.2.1
 - Bump picotest to 3.2.3

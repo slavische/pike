@@ -39,15 +39,11 @@ for _, router in pairs(vshard.router.internal.routers) do \
 end; \
 return require('json').encode(out)";
 
-// The chunk returns a value so that its output can be parsed like any other query.
-const REBALANCER_WAKEUP: &str = "\\lua\nvshard.storage.rebalancer_wakeup() return true";
-
-// The chunk returns a value so that its output can be parsed like any other query.
+const REBALANCER_WAKEUP: &str = "\\lua\nvshard.storage.rebalancer_wakeup()";
 const ROUTER_DISCOVERY_WAKEUP: &str = "\\lua\n\
 for _, router in pairs(vshard.router.internal.routers) do \
     router:discovery_wakeup(); \
-end; \
-return true";
+end";
 
 fn parse_lua_json(lua_output: &str) -> Result<HashMap<String, u32>> {
     let trimmed = lua_output.trim();
@@ -118,6 +114,25 @@ impl<'a> InstanceSocketClient<'a> {
         Ok(output.to_string())
     }
 
+    /// Runs input query in picodata admin and expects empty output.
+    fn get_lua_empty_output(&self, lua_query: &str) -> Result<()> {
+        let stdout = run_query_in_picodata_admin(self.picodata_path, &self.socket_path, lua_query)?;
+
+        let mut lines = stdout.lines();
+        let Some(first) = lines.find_map(|line| line.strip_prefix("- error:")) else {
+            return Ok(());
+        };
+
+        // The message continues until the end of the YAML document.
+        let message = std::iter::once(first)
+            .chain(lines.take_while(|line| *line != "..."))
+            .map(str::trim)
+            .collect::<Vec<_>>()
+            .join(" ");
+
+        bail!("Lua query failed: {message}");
+    }
+
     fn get_parsed_lua_output<T>(&self, lua_query: &str) -> anyhow::Result<T>
     where
         T: FromStr,
@@ -149,16 +164,12 @@ impl<'a> InstanceSocketClient<'a> {
             .and_then(|o| parse_lua_json(&o))
     }
 
-    /// Wakes up the vshard rebalancer, if it runs on this instance.
     pub fn rebalancer_wakeup(&self) -> Result<()> {
-        let _: bool = self.get_parsed_lua_output(REBALANCER_WAKEUP)?;
-        Ok(())
+        self.get_lua_empty_output(REBALANCER_WAKEUP)
     }
 
-    /// Wakes up the discovery of every vshard router on this instance.
     pub fn router_discovery_wakeup(&self) -> Result<()> {
-        let _: bool = self.get_parsed_lua_output(ROUTER_DISCOVERY_WAKEUP)?;
-        Ok(())
+        self.get_lua_empty_output(ROUTER_DISCOVERY_WAKEUP)
     }
 
     /// Fetches configured number of buckets in the instance tier.

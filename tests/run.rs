@@ -1476,8 +1476,7 @@ fn run_with_wait_vshard_wakeup_error() {
     init_plugin(PLUGIN_NAME);
     set_default_tier_bucket_count(Path::new(PLUGIN_DIR), 60000);
 
-    let mut command = pike_run_command(&[]);
-    command.env("RUST_LOG", "debug");
+    let command = pike_run_command(&[]);
     let (status, log) =
         pike_run_and_stop_with_action(command, "Waiting for vshard discovery on", || {
             run_lua_on_i1(
@@ -1488,9 +1487,9 @@ fn run_with_wait_vshard_wakeup_error() {
             );
         });
 
-    assert!(status.success(), "pike run failed:\n{log}");
+    assert!(!status.success(), "pike run must fail:\n{log}");
     assert!(
         log.contains("wakeup failed") && log.contains("test error"),
-        "failed wakeups must be logged:\n{log}"
+        "pike run must fail with the wakeup error:\n{log}"
     );
 }
