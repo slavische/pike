@@ -1472,9 +1472,8 @@ fn run_with_wait_vshard_total_timeout() {
 }
 
 #[test]
-fn run_with_wait_vshard_wakeup_error() {
+fn run_with_wait_vshard_wakeup_error_is_ignored() {
     init_plugin(PLUGIN_NAME);
-    set_default_tier_bucket_count(Path::new(PLUGIN_DIR), 60000);
 
     let command = pike_run_command(&[]);
     let (status, log) =
@@ -1487,9 +1486,8 @@ fn run_with_wait_vshard_wakeup_error() {
             );
         });
 
-    assert!(!status.success(), "pike run must fail:\n{log}");
     assert!(
-        log.contains("wakeup failed") && log.contains("test error"),
-        "pike run must fail with the wakeup error:\n{log}"
+        status.success(),
+        "pike run must not fail because of wakeup errors:\n{log}"
     );
 }

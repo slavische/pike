@@ -75,7 +75,8 @@ pub(super) fn wait_instances_ready(instances: &[PicodataInstance]) -> Result<()>
 ///
 /// On every polling iteration the vshard rebalancer or router discovery
 /// is woken up on each instance, so that waiting doesn't depend on
-/// internal vshard timers.
+/// internal vshard timers. Wakeup failures are ignored, and failed reads
+/// of the `vshard.router` state are retried until a timeout.
 ///
 /// Both phases share one total timeout (`wait_vshard_discovery_timeout`). Each phase
 /// also fails if nothing changes for longer than the idle timeout
@@ -128,7 +129,7 @@ fn wait_for_initial_resharding(
     let mut poller = Poller::new(policy);
 
     let bucket_count_per_replicaset = loop {
-        wakeup_rebalancer(instances, picodata_path)?;
+        wakeup_rebalancer(instances, picodata_path);
 
         let bucket_count_per_instance =
             read_all(instances, picodata_path, InstanceSocketClient::bucket_count)?;
@@ -230,20 +231,26 @@ fn wait_for_vshard_router_init(
     let start = Instant::now();
     info!("Waiting for vshard initialization");
 
+    let mut router_view_per_instance = HashMap::new();
     let mut poller = Poller::new(policy);
     loop {
-        wakeup_discovery(instances, picodata_path)?;
+        wakeup_discovery(instances, picodata_path);
 
-        let router_view_per_instance = read_all(
+        match read_all(
             instances,
             picodata_path,
             InstanceSocketClient::vshard_replicaset_map,
-        )?;
-        if router_view_per_instance
-            .values()
-            .all(|view| view == bucket_count_per_replicaset)
-        {
-            break;
+        ) {
+            Ok(view) => {
+                router_view_per_instance = view;
+                if router_view_per_instance
+                    .values()
+                    .all(|view| view == bucket_count_per_replicaset)
+                {
+                    break;
+                }
+            }
+            Err(err) => debug!("unable to read vshard replicaset map: {err:#}"),
         }
 
         poller
@@ -259,34 +266,29 @@ fn wait_for_vshard_router_init(
     Ok(())
 }
 
-fn wakeup_rebalancer(instances: &[PicodataInstance], picodata_path: &PathBuf) -> Result<()> {
+fn wakeup_rebalancer(instances: &[PicodataInstance], picodata_path: &PathBuf) {
     for instance in instances {
-        instance
-            .socket_client(picodata_path)
-            .rebalancer_wakeup()
-            .with_context(|| {
-                format!(
-                    "instance '{}': rebalancer wakeup failed",
-                    instance.instance_name
-                )
-            })?;
+        if let Err(err) = instance.socket_client(picodata_path).rebalancer_wakeup() {
+            debug!(
+                "instance '{}': rebalancer wakeup failed: {err:#}",
+                instance.instance_name
+            );
+        }
     }
-    Ok(())
 }
 
-fn wakeup_discovery(instances: &[PicodataInstance], picodata_path: &PathBuf) -> Result<()> {
+fn wakeup_discovery(instances: &[PicodataInstance], picodata_path: &PathBuf) {
     for instance in instances {
-        instance
+        if let Err(err) = instance
             .socket_client(picodata_path)
             .router_discovery_wakeup()
-            .with_context(|| {
-                format!(
-                    "instance '{}': router discovery wakeup failed",
-                    instance.instance_name
-                )
-            })?;
+        {
+            debug!(
+                "instance '{}': router discovery wakeup failed: {err:#}",
+                instance.instance_name
+            );
+        }
     }
-    Ok(())
 }
 
 /// Fails on the first failed read.
