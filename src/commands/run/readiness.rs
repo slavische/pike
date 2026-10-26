@@ -188,9 +188,10 @@ fn is_resharding_complete(
 ) -> bool {
     instances.iter().all(|instance| {
         let expected = expected_bucket_counts.get(&instance.tier).unwrap();
-        bucket_count_per_instance
+        let bucket_count = bucket_count_per_instance
             .get(&instance.instance_name)
-            .is_some_and(|bucket_count| expected.contains(bucket_count))
+            .unwrap();
+        expected.contains(bucket_count)
     })
 }
 
